@@ -3,3 +3,4 @@ node_modules/
 .netlify/
 .DS_Store
 *.bak-*
+deno.lock

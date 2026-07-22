@@ -1,0 +1,9 @@
+{
+  "name": "bean-bros-brewing",
+  "private": true,
+  "version": "1.0.0",
+  "dependencies": {
+    "stripe": "^17.4.0",
+    "@netlify/blobs": "^8.1.0"
+  }
+}
