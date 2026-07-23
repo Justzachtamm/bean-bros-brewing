@@ -83,10 +83,9 @@ exports.handler = async (event) => {
   try {
     if (stripeEvent.type === "checkout.session.completed") {
       const session = stripeEvent.data.object;
-      // Subscriptions are recorded via invoice.paid instead (fires for the
-      // first period AND every renewal, giving one consistent code path).
-      // Recording it here too would double-count the first payment.
       if (session.mode === "payment") {
+        // One-time orders are recorded here — this event fires once, exactly
+        // when the payment succeeds.
         const lineItems = await stripe.checkout.sessions.listLineItems(session.id, {
           limit: 100,
           expand: ["data.price.product"],
@@ -101,6 +100,21 @@ exports.handler = async (event) => {
           total: (session.amount_total || 0) / 100,
           shippingAddress: toShippingAddress(session.shipping_details),
         });
+      } else if (session.mode === "subscription" && session.subscription) {
+        // Subscriptions are recorded via invoice.paid instead (fires for the
+        // first period AND every renewal, giving one consistent code path;
+        // recording an order here too would double-count the first payment).
+        // But the shipping address is only ever collected here, once, at
+        // checkout — Invoices don't carry it. Stash it on the Subscription's
+        // own metadata so every future invoice.paid (including this first
+        // one) can read it back.
+        const shipping = toShippingAddress(session.shipping_details);
+        if (shipping) {
+          const subscriptionId = typeof session.subscription === "string" ? session.subscription : session.subscription.id;
+          await stripe.subscriptions.update(subscriptionId, {
+            metadata: { shipping_address: JSON.stringify(shipping) },
+          });
+        }
       }
     }
 
@@ -108,9 +122,18 @@ exports.handler = async (event) => {
       const invoiceStub = stripeEvent.data.object;
       // Re-fetch with expansion — webhook payloads aren't expandable in place.
       const invoice = await stripe.invoices.retrieve(invoiceStub.id, {
-        expand: ["lines.data.price.product", "customer"],
+        expand: ["lines.data.price.product", "customer", "subscription"],
       });
       const customer = invoice.customer;
+      const subscription = invoice.subscription;
+      let shippingAddress = null;
+      if (subscription && typeof subscription === "object" && subscription.metadata?.shipping_address) {
+        try {
+          shippingAddress = JSON.parse(subscription.metadata.shipping_address);
+        } catch {
+          shippingAddress = null;
+        }
+      }
       await recordOrder(stripe, {
         id: "BB-" + invoice.id.slice(-8).toUpperCase(),
         sourceId: invoice.id,
@@ -119,6 +142,7 @@ exports.handler = async (event) => {
         customerEmail: typeof customer === "object" ? customer?.email : invoice.customer_email,
         items: toOrderItems(invoice.lines.data),
         total: (invoice.amount_paid || 0) / 100,
+        shippingAddress,
       });
     }
   } catch (err) {
