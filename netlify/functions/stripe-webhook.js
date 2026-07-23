@@ -3,6 +3,57 @@ const { connectLambda } = require("@netlify/blobs");
 const { decrementStock } = require("./lib/products");
 const { addOrder } = require("./lib/orders");
 
+// Turns Stripe line items (from a Checkout Session or an Invoice) into our
+// internal order-item shape, reading grind/frequency back from the
+// product_data.metadata we attached when the price was created — not from
+// the free-text description, which isn't reliable to parse.
+function toOrderItems(lineItems) {
+  return lineItems.map((li) => {
+    const product = li.price?.product;
+    const metadata = (product && typeof product === "object" && product.metadata) || {};
+    return {
+      name: (product && product.name) || li.description || "Unknown item",
+      grind: metadata.grind || "",
+      isSubscription: metadata.subscription === "true",
+      frequency: metadata.frequency || "",
+      quantity: li.quantity,
+      amount: (li.amount_total ?? li.amount ?? 0) / 100,
+    };
+  });
+}
+
+function toShippingAddress(shippingDetails) {
+  if (!shippingDetails?.address) return null;
+  const a = shippingDetails.address;
+  return {
+    name: shippingDetails.name || "",
+    address: a.line1 || "",
+    address2: a.line2 || "",
+    city: a.city || "",
+    state: a.state || "",
+    zip: a.postal_code || "",
+    country: a.country || "US",
+  };
+}
+
+async function recordOrder(stripe, { id, sourceId, customerId, customerName, customerEmail, items, total, shippingAddress }) {
+  await decrementStock(items);
+  await addOrder({
+    id,
+    sessionId: sourceId, // idempotency key — a checkout session id or an invoice id, either way unique per charge
+    customerId: customerId || "",
+    date: new Date().toISOString(),
+    customerName: customerName || "Unknown",
+    customerEmail: customerEmail || "",
+    items,
+    total,
+    status: "Paid",
+    shippingAddress: shippingAddress || null,
+    trackingNumber: null,
+    labelKey: null,
+  });
+}
+
 exports.handler = async (event) => {
   connectLambda(event);
 
@@ -29,33 +80,51 @@ exports.handler = async (event) => {
     return { statusCode: 400, body: JSON.stringify({ error: "Invalid signature" }) };
   }
 
-  if (stripeEvent.type === "checkout.session.completed") {
-    const session = stripeEvent.data.object;
-    try {
-      const lineItems = await stripe.checkout.sessions.listLineItems(session.id, { limit: 100 });
-      const items = lineItems.data.map((li) => ({
-        name: li.description,
-        quantity: li.quantity,
-        amount: li.amount_total / 100,
-      }));
-
-      await decrementStock(items);
-      await addOrder({
-        id: "BB-" + session.id.slice(-8).toUpperCase(),
-        sessionId: session.id,
-        date: new Date().toISOString(),
-        customerName: session.customer_details?.name || "Unknown",
-        customerEmail: session.customer_details?.email || "",
-        items,
-        total: (session.amount_total || 0) / 100,
-        status: "Paid",
-      });
-    } catch (err) {
-      console.error("Error processing checkout.session.completed:", err.message);
-      // Return 500 so Stripe retries — addOrder is idempotent on sessionId,
-      // so a retry after a transient failure is safe.
-      return { statusCode: 500, body: JSON.stringify({ error: "Processing error" }) };
+  try {
+    if (stripeEvent.type === "checkout.session.completed") {
+      const session = stripeEvent.data.object;
+      // Subscriptions are recorded via invoice.paid instead (fires for the
+      // first period AND every renewal, giving one consistent code path).
+      // Recording it here too would double-count the first payment.
+      if (session.mode === "payment") {
+        const lineItems = await stripe.checkout.sessions.listLineItems(session.id, {
+          limit: 100,
+          expand: ["data.price.product"],
+        });
+        await recordOrder(stripe, {
+          id: "BB-" + session.id.slice(-8).toUpperCase(),
+          sourceId: session.id,
+          customerId: typeof session.customer === "string" ? session.customer : session.customer?.id,
+          customerName: session.customer_details?.name,
+          customerEmail: session.customer_details?.email,
+          items: toOrderItems(lineItems.data),
+          total: (session.amount_total || 0) / 100,
+          shippingAddress: toShippingAddress(session.shipping_details),
+        });
+      }
     }
+
+    if (stripeEvent.type === "invoice.paid") {
+      const invoiceStub = stripeEvent.data.object;
+      // Re-fetch with expansion — webhook payloads aren't expandable in place.
+      const invoice = await stripe.invoices.retrieve(invoiceStub.id, {
+        expand: ["lines.data.price.product", "customer"],
+      });
+      const customer = invoice.customer;
+      await recordOrder(stripe, {
+        id: "BB-" + invoice.id.slice(-8).toUpperCase(),
+        sourceId: invoice.id,
+        customerId: typeof customer === "string" ? customer : customer?.id,
+        customerName: typeof customer === "object" ? customer?.name : undefined,
+        customerEmail: typeof customer === "object" ? customer?.email : invoice.customer_email,
+        items: toOrderItems(invoice.lines.data),
+        total: (invoice.amount_paid || 0) / 100,
+      });
+    }
+  } catch (err) {
+    console.error(`Error processing ${stripeEvent.type}:`, err.message);
+    // 500 so Stripe retries — recordOrder is idempotent per session/invoice id.
+    return { statusCode: 500, body: JSON.stringify({ error: "Processing error" }) };
   }
 
   return { statusCode: 200, body: JSON.stringify({ received: true }) };

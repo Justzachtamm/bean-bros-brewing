@@ -24,4 +24,13 @@ async function addOrder(order) {
   return orders;
 }
 
-module.exports = { getOrders, addOrder };
+async function updateOrder(id, patch) {
+  const orders = await getOrders();
+  const idx = orders.findIndex((o) => o.id === id);
+  if (idx === -1) return null;
+  orders[idx] = { ...orders[idx], ...patch };
+  await store().setJSON(KEY, orders);
+  return orders[idx];
+}
+
+module.exports = { getOrders, addOrder, updateOrder };
