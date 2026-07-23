@@ -43,14 +43,18 @@ async function buildShippingOptions(shipTo, totalWeightLbs) {
       if (rates.length) {
         return rates.map((r) => {
           const meta = UPS_SERVICE_NAMES[r.serviceCode] || { name: `UPS Service ${r.serviceCode}`, minDays: 1, maxDays: 7 };
+          // Real transit time from UPS when the API gave us one; otherwise
+          // fall back to the static per-service estimate.
+          const minDays = r.transitDays ?? meta.minDays;
+          const maxDays = r.transitDays ?? meta.maxDays;
           return {
             shipping_rate_data: {
               type: "fixed_amount",
               fixed_amount: { amount: Math.round(r.amount * 100), currency: "usd" },
               display_name: meta.name,
               delivery_estimate: {
-                minimum: { unit: "business_day", value: meta.minDays },
-                maximum: { unit: "business_day", value: meta.maxDays },
+                minimum: { unit: "business_day", value: minDays },
+                maximum: { unit: "business_day", value: maxDays },
               },
             },
           };

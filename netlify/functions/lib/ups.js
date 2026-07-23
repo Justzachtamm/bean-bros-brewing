@@ -70,7 +70,15 @@ function buildAddress({ name, address, city, state, zip, country = "US" }) {
   };
 }
 
-// requestOption: "Shop" returns rates for all available UPS services in one call.
+// requestOption: "Shoptimeintransit" returns rates AND real transit-time
+// estimates for all available UPS services in one call (plain "Shop" only
+// returns rates). The transit-time field parsed below (GuaranteedDelivery /
+// BusinessDaysInTransit) is my best understanding of UPS's documented shape,
+// NOT yet confirmed against a live response — there are no UPS credentials
+// configured to test against. If the field turns out to be named or nested
+// differently, transitDays below just comes back null and
+// create-checkout-session.js falls back to its static day-range estimates,
+// so a wrong guess here degrades gracefully rather than breaking rates.
 async function getRates({ shipFrom, shipTo, weightLbs }) {
   const token = await getAccessToken();
   const shipperNumber = process.env.UPS_ACCOUNT_NUMBER;
@@ -93,7 +101,7 @@ async function getRates({ shipFrom, shipTo, weightLbs }) {
     },
   };
 
-  const res = await fetch(`${baseUrl()}/api/rating/${API_VERSION}/Shop`, {
+  const res = await fetch(`${baseUrl()}/api/rating/${API_VERSION}/Shoptimeintransit`, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${token}`,
@@ -111,11 +119,16 @@ async function getRates({ shipFrom, shipTo, weightLbs }) {
 
   const data = await res.json();
   const rated = data.RateResponse?.RatedShipment || [];
-  return rated.map((r) => ({
-    serviceCode: r.Service.Code,
-    amount: parseFloat(r.TotalCharges.MonetaryValue),
-    currency: r.TotalCharges.CurrencyCode,
-  }));
+  return rated.map((r) => {
+    const days = parseInt(r.GuaranteedDelivery?.BusinessDaysInTransit, 10);
+    return {
+      serviceCode: r.Service.Code,
+      amount: parseFloat(r.TotalCharges.MonetaryValue),
+      currency: r.TotalCharges.CurrencyCode,
+      transitDays: Number.isFinite(days) ? days : null,
+      deliveryByTime: r.GuaranteedDelivery?.DeliveryByTime || null,
+    };
+  });
 }
 
 async function createShipment({ shipFrom, shipTo, weightLbs, serviceCode, description }) {
