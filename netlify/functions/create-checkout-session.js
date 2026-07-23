@@ -190,9 +190,14 @@ exports.handler = async (event) => {
       // Subscribe & Save ships product on a recurring basis too, so it needs
       // an address just as much as a one-time order does.
       sessionConfig.shipping_address_collection = { allowed_countries: ["US"] };
-      sessionConfig.shipping_options = shipping_options;
     }
     if (mode === "payment") {
+      // Stripe rejects shipping_options entirely in subscription mode ("can
+      // only be used in payment mode") — a per-checkout shipping-speed
+      // picker doesn't really apply to a recurring order anyway. Subscribe &
+      // Save still gets a fixed, business-chosen shipping method; it just
+      // isn't a customer-facing choice at checkout the way one-time orders are.
+      sessionConfig.shipping_options = shipping_options;
       // Subscription mode always creates a Customer; one-time purchases don't by
       // default. We force it so every order — recurring or not — is tied to a
       // durable Stripe Customer for the admin Customers view and order history.
