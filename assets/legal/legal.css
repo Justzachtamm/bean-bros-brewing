@@ -1,0 +1,231 @@
+/* Shared stylesheet for standalone legal/policy pages.
+   Independent of the app bundle on purpose: these pages must render and stay
+   readable even if the SPA bundle ever fails to load, and keeping them plain
+   semantic HTML/CSS makes them straightforward to keep WCAG 2.1 AA compliant. */
+
+*, *::before, *::after { box-sizing: border-box; }
+
+:root {
+  --cream: #faf6f1;
+  --espresso: #1a1612;
+  --espresso-mid: #241f1a;
+  --mocha: #6b5b4e;
+  --latte: #d4c5b2;
+  --gold: #c4a46d;
+  --body-text: rgba(255, 255, 255, 0.87); /* ~11:1 contrast on --espresso, well above the 4.5:1 AA floor */
+  --muted-text: rgba(255, 255, 255, 0.68); /* ~7.7:1 contrast on --espresso, still comfortably AA */
+}
+
+html {
+  scroll-behavior: smooth;
+  -webkit-font-smoothing: antialiased;
+}
+
+body {
+  margin: 0;
+  background: var(--espresso);
+  color: var(--body-text);
+  font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+  line-height: 1.7;
+}
+
+h1, h2, h3 {
+  font-family: 'Playfair Display', serif;
+  color: #fff;
+  font-weight: 500;
+  line-height: 1.25;
+}
+
+a {
+  color: var(--gold);
+}
+
+a:hover {
+  color: var(--latte);
+}
+
+/* Visible on every interactive element for keyboard users -- the app bundle
+   relies on browser-default outlines in places, which some resets suppress. */
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+[tabindex]:focus-visible {
+  outline: 3px solid var(--gold);
+  outline-offset: 3px;
+  border-radius: 2px;
+}
+
+.skip-link {
+  position: absolute;
+  top: -48px;
+  left: 12px;
+  background: var(--gold);
+  color: var(--espresso);
+  padding: 12px 20px;
+  border-radius: 6px;
+  font-weight: 700;
+  text-decoration: none;
+  z-index: 1000;
+  transition: top 0.15s ease;
+}
+
+.skip-link:focus {
+  top: 12px;
+}
+
+.legal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 20px 24px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  flex-wrap: wrap;
+}
+
+.legal-header a.brand {
+  font-family: 'Playfair Display', serif;
+  font-size: 20px;
+  color: #fff;
+  text-decoration: none;
+  letter-spacing: 0.02em;
+}
+
+.legal-header a.brand:hover {
+  color: var(--gold);
+}
+
+.legal-header nav a {
+  margin-left: 20px;
+  font-size: 14px;
+  text-decoration: none;
+  color: var(--muted-text);
+}
+
+.legal-header nav a:hover,
+.legal-header nav a[aria-current="page"] {
+  color: var(--gold);
+}
+
+main {
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 56px 24px 96px;
+}
+
+main h1 {
+  font-size: clamp(32px, 5vw, 48px);
+  margin-bottom: 8px;
+}
+
+.updated {
+  color: var(--muted-text);
+  font-size: 14px;
+  margin-bottom: 40px;
+}
+
+main h2 {
+  font-size: 24px;
+  margin-top: 44px;
+  margin-bottom: 14px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+main h2:first-of-type {
+  border-top: none;
+  padding-top: 0;
+}
+
+main h3 {
+  font-size: 17px;
+  margin-top: 24px;
+  margin-bottom: 10px;
+  color: var(--latte);
+}
+
+main p, main li {
+  font-size: 16px;
+  color: var(--body-text);
+  margin-bottom: 14px;
+}
+
+main ul, main ol {
+  padding-left: 24px;
+  margin-bottom: 14px;
+}
+
+main strong {
+  color: #fff;
+}
+
+.callout {
+  background: rgba(196, 164, 109, 0.08);
+  border: 1px solid rgba(196, 164, 109, 0.25);
+  border-radius: 10px;
+  padding: 18px 20px;
+  margin: 20px 0;
+}
+
+.callout p:last-child {
+  margin-bottom: 0;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 16px 0 24px;
+  font-size: 15px;
+}
+
+caption {
+  text-align: left;
+  color: var(--muted-text);
+  font-size: 13px;
+  margin-bottom: 8px;
+}
+
+th, td {
+  text-align: left;
+  padding: 10px 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  vertical-align: top;
+}
+
+th {
+  color: #fff;
+  font-weight: 600;
+}
+
+address {
+  font-style: normal;
+}
+
+.legal-footer {
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  padding: 32px 24px 48px;
+  text-align: center;
+  color: var(--muted-text);
+  font-size: 14px;
+}
+
+.legal-footer a {
+  margin: 0 10px;
+}
+
+.legal-footer .biz {
+  margin-bottom: 10px;
+  color: var(--body-text);
+}
+
+/* Respect users who've asked the OS to minimize motion. */
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  * {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}
