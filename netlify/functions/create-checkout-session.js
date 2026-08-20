@@ -4,6 +4,7 @@ const { getProductByName } = require("./lib/products");
 const { corsHeaders, ALLOWED_ORIGINS } = require("./lib/cors");
 const ups = require("./lib/ups");
 const { getShippingConfig } = require("./lib/shipping-config");
+const { intervalForFrequency } = require("./lib/subscriptions");
 
 const SUBSCRIBE_DISCOUNT = 0.1;
 const LBS_PER_BAG = 0.9; // ~12oz bag + packaging, rough estimate
@@ -146,9 +147,7 @@ exports.handler = async (event) => {
           metadata: itemMetadata(item),
         },
         unit_amount: Math.round(item.price * 100),
-        ...(item.isSubscription
-          ? { recurring: { interval: item.frequency === "weekly" ? "week" : "month", interval_count: 1 } }
-          : {}),
+        ...(item.isSubscription ? { recurring: intervalForFrequency(item.frequency) } : {}),
       },
       quantity: item.quantity,
     }));
