@@ -54,6 +54,16 @@ exports.handler = async (event) => {
   if (!order.shippingAddress) {
     return { statusCode: 400, headers, body: JSON.stringify({ error: "This order has no shipping address on file (subscription renewals don't currently capture one)." }) };
   }
+  // Guard against two overlapping invocations for the same order both
+  // reaching UPS's real, billable ship endpoint (e.g. a slow response
+  // triggering a client or proxy retry while the first call is still in
+  // flight) — a real failure mode observed while testing this locally.
+  // Auto-expires so a genuinely crashed invocation doesn't wedge retries.
+  const LOCK_TTL_MS = 2 * 60 * 1000;
+  if (order.labelCreationStartedAt && Date.now() - order.labelCreationStartedAt < LOCK_TTL_MS) {
+    return { statusCode: 409, headers, body: JSON.stringify({ error: "A label is already being created for this order — try again in a moment." }) };
+  }
+  await updateOrder(order.id, { labelCreationStartedAt: Date.now() });
 
   try {
     const config = await getShippingConfig();
@@ -87,7 +97,7 @@ exports.handler = async (event) => {
       });
     }
 
-    await updateOrder(order.id, { trackingNumber: result.trackingNumber, labelKey });
+    await updateOrder(order.id, { trackingNumber: result.trackingNumber, labelKey, shipmentId: result.shipmentId, labelCreationStartedAt: null });
 
     return {
       statusCode: 200,
@@ -96,6 +106,7 @@ exports.handler = async (event) => {
     };
   } catch (err) {
     console.error("Error creating UPS shipment:", err.message);
+    await updateOrder(order.id, { labelCreationStartedAt: null }).catch(() => {});
     return { statusCode: 502, headers, body: JSON.stringify({ error: err.message }) };
   }
 };

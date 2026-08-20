@@ -97,6 +97,10 @@ async function getRates({ shipFrom, shipTo, weightLbs }) {
         PaymentDetails: {
           ShipmentCharge: [{ Type: "01", BillShipper: { AccountNumber: shipperNumber } }],
         },
+        // Required by the Shoptimeintransit request option — omitting it fails
+        // with "Delivery Time Information Container is required..." (error
+        // 111563). PackageBillType 03 = Non-Document (a physical package).
+        DeliveryTimeInformation: { PackageBillType: "03" },
       },
     },
   };
@@ -167,19 +171,78 @@ async function createShipment({ shipFrom, shipTo, weightLbs, serviceCode, descri
     body: JSON.stringify(body),
   });
 
+  const text = await res.text();
   if (!res.ok) {
-    const text = await res.text().catch(() => "");
     throw new Error(`UPS Shipping API failed (${res.status}): ${text.slice(0, 300)}`);
   }
 
-  const data = await res.json();
-  const results = data.ShipmentResults;
-  return {
-    trackingNumber: results.PackageResults?.TrackingNumber,
-    shipmentId: results.ShipmentIdentificationNumber,
-    labelBase64: results.PackageResults?.LabelImage?.[0]?.GraphicImage,
-    labelFormat: "png",
-  };
+  // Always log the raw response BEFORE parsing. A 2xx from this endpoint
+  // means UPS already created a real, billable-on-pickup shipment — if the
+  // shape below ever turns out wrong again, this line is what lets a human
+  // recover the tracking/shipment ID from the logs instead of losing it.
+  // Uncapped — the base64 label image alone can run past 100KB, and a
+  // truncated log line is useless for recovering a shipment/tracking ID
+  // after the fact (this is the whole point of logging it).
+  console.log(`UPS createShipment raw response: ${text}`);
+
+  const data = JSON.parse(text);
+  // Success responses are wrapped in ShipmentResponse (per UPS's
+  // SHIPResponseWrapper schema) — NOT top-level ShipmentResults.
+  const results = data.ShipmentResponse?.ShipmentResults;
+  if (!results) {
+    throw new Error(`UPS returned 2xx but the response didn't have the expected ShipmentResponse.ShipmentResults shape — check the raw-response log line above to recover any shipment/tracking ID and void it manually if needed.`);
+  }
+  // PackageResults is documented as always an array for v2403+ (this lib
+  // targets v2409) — a single object here was the earlier, wrong assumption.
+  // The label image lives at PackageResults[0].ShippingLabel.GraphicImage,
+  // not a top-level LabelImage array.
+  const pkg = Array.isArray(results.PackageResults) ? results.PackageResults[0] : results.PackageResults;
+  const shipmentId = results.ShipmentIdentificationNumber;
+  const trackingNumber = pkg?.TrackingNumber;
+  const labelBase64 = pkg?.ShippingLabel?.GraphicImage;
+  if (!shipmentId || !trackingNumber || !labelBase64) {
+    // A real, billable shipment already exists on UPS's side at this point —
+    // fail loudly with the shipmentId (if we have it) so the caller can void
+    // it immediately, instead of silently returning a partial/null result.
+    throw new Error(`UPS created the shipment but a field was missing from the response (shipmentId=${shipmentId}, trackingNumber=${trackingNumber}, hasLabel=${!!labelBase64}) — check the raw-response log line above and void shipmentId ${shipmentId || "(unknown — see raw log)"} manually if present.`);
+  }
+  return { trackingNumber, shipmentId, labelBase64, labelFormat: "png" };
 }
 
-module.exports = { isConfigured, getAccessToken, getRates, createShipment };
+// DELETE /shipments/{version}/void/cancel/{shipmentidentificationnumber}?trackingnumber=...
+// Built against UPS's published Shipping.yaml (VoidShipment operation) — no
+// request body, just path + query params. ResponseStatus.Code === "1" means
+// success (UPS's own convention across this API family).
+async function voidShipment({ shipmentId, trackingNumber }) {
+  const token = await getAccessToken();
+
+  const url = `${baseUrl()}/api/shipments/${API_VERSION}/void/cancel/${encodeURIComponent(shipmentId)}${trackingNumber ? `?trackingnumber=${encodeURIComponent(trackingNumber)}` : ""}`;
+  const res = await fetch(url, {
+    method: "DELETE",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      transId: `bb-void-${Date.now()}`,
+      transactionSrc: "beanbrosbrewingco",
+    },
+  });
+
+  const text = await res.text();
+  console.log(`UPS voidShipment raw response (shipmentId=${shipmentId}): ${text.slice(0, 2000)}`);
+  const data = JSON.parse(text || "{}");
+
+  if (!res.ok) {
+    const msg = data?.response?.errors?.[0]?.message || data?.Fault?.faultstring || JSON.stringify(data).slice(0, 300);
+    throw new Error(`UPS Void Shipment failed (${res.status}): ${msg}`);
+  }
+
+  const status = data.VoidShipmentResponse?.Response?.ResponseStatus;
+  const summary = data.VoidShipmentResponse?.SummaryResult?.Status;
+  const success = status?.Code === "1";
+  if (!success) {
+    throw new Error(`UPS Void Shipment did not confirm success: ${JSON.stringify(status || summary || data).slice(0, 300)}`);
+  }
+
+  return { ok: true, description: summary?.Description || status?.Description || "Voided" };
+}
+
+module.exports = { isConfigured, getAccessToken, getRates, createShipment, voidShipment };
