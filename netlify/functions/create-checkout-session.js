@@ -2,86 +2,14 @@ const Stripe = require("stripe");
 const { connectLambda } = require("@netlify/blobs");
 const { getProductByName } = require("./lib/products");
 const { corsHeaders, ALLOWED_ORIGINS } = require("./lib/cors");
-const ups = require("./lib/ups");
 const { getShippingConfig } = require("./lib/shipping-config");
 const { intervalForFrequency } = require("./lib/subscriptions");
+const { computeWeightLbs, getShippingOptions, FLAT_GROUND_RATE_CENTS } = require("./lib/shipping-rates");
 
 const SUBSCRIBE_DISCOUNT = 0.1;
-const LBS_PER_BAG = 0.9; // ~12oz bag + packaging, rough estimate
-const BOX_BASE_WEIGHT_LBS = 0.5;
-// Standard ground rate charged when the order doesn't clear the admin's
-// free-shipping threshold and real UPS rates aren't available (either UPS
-// isn't configured, or — as today — the client hasn't collected a shipping
-// address yet to rate against). Faster tiers are unaffected by the
-// threshold; only the standard/ground tier is ever waived.
-const FLAT_GROUND_RATE_CENTS = 799;
-
-const UPS_SERVICE_NAMES = {
-  "03": { name: "UPS Ground", minDays: 1, maxDays: 5 },
-  "12": { name: "UPS 3 Day Select", minDays: 3, maxDays: 3 },
-  "02": { name: "UPS 2nd Day Air", minDays: 2, maxDays: 2 },
-  "01": { name: "UPS Next Day Air", minDays: 1, maxDays: 1 },
-};
 
 function isAllowedRedirect(url) {
   return typeof url === "string" && ALLOWED_ORIGINS.some((o) => url.startsWith(o));
-}
-
-// Real UPS-calculated rates when we know the destination and UPS is
-// configured; otherwise the flat-rate fallback that shipped before UPS
-// credentials existed. shipTo is optional in the request body — the
-// client doesn't collect an address before Stripe Checkout today, so
-// this only activates once that's wired up client-side too.
-async function buildShippingOptions(shipTo, totalWeightLbs, shippingConfig, qualifiesForFreeShipping) {
-  if (shipTo && ups.isConfigured()) {
-    try {
-      const rates = await ups.getRates({
-        shipFrom: {
-          name: shippingConfig.shipFromName,
-          address: shippingConfig.shipFromAddress,
-          city: shippingConfig.shipFromCity,
-          state: shippingConfig.shipFromState,
-          zip: shippingConfig.shipFromZip,
-        },
-        shipTo,
-        weightLbs: totalWeightLbs,
-      });
-      if (rates.length) {
-        return rates.map((r) => {
-          const meta = UPS_SERVICE_NAMES[r.serviceCode] || { name: `UPS Service ${r.serviceCode}`, minDays: 1, maxDays: 7 };
-          // Real transit time from UPS when the API gave us one; otherwise
-          // fall back to the static per-service estimate.
-          const minDays = r.transitDays ?? meta.minDays;
-          const maxDays = r.transitDays ?? meta.maxDays;
-          // Only the standard Ground tier is ever waived by the free-shipping
-          // threshold — faster tiers always cost their real rate.
-          const isGround = r.serviceCode === "03";
-          const waived = isGround && qualifiesForFreeShipping;
-          return {
-            shipping_rate_data: {
-              type: "fixed_amount",
-              fixed_amount: { amount: waived ? 0 : Math.round(r.amount * 100), currency: "usd" },
-              display_name: waived ? `${meta.name} (Free)` : meta.name,
-              delivery_estimate: {
-                minimum: { unit: "business_day", value: minDays },
-                maximum: { unit: "business_day", value: maxDays },
-              },
-            },
-          };
-        });
-      }
-    } catch (err) {
-      console.error("UPS rate lookup failed, falling back to flat rates:", err.message);
-    }
-  }
-
-  const groundAmount = qualifiesForFreeShipping ? 0 : FLAT_GROUND_RATE_CENTS;
-  return [
-    { shipping_rate_data: { type: "fixed_amount", fixed_amount: { amount: groundAmount, currency: "usd" }, display_name: qualifiesForFreeShipping ? "UPS Ground (Free)" : "UPS Ground", delivery_estimate: { minimum: { unit: "business_day", value: 5 }, maximum: { unit: "business_day", value: 7 } } } },
-    { shipping_rate_data: { type: "fixed_amount", fixed_amount: { amount: 999, currency: "usd" }, display_name: "UPS 3 Day Select", delivery_estimate: { minimum: { unit: "business_day", value: 3 }, maximum: { unit: "business_day", value: 3 } } } },
-    { shipping_rate_data: { type: "fixed_amount", fixed_amount: { amount: 1499, currency: "usd" }, display_name: "UPS 2nd Day Air", delivery_estimate: { minimum: { unit: "business_day", value: 2 }, maximum: { unit: "business_day", value: 2 } } } },
-    { shipping_rate_data: { type: "fixed_amount", fixed_amount: { amount: 2499, currency: "usd" }, display_name: "UPS Next Day Air", delivery_estimate: { minimum: { unit: "business_day", value: 1 }, maximum: { unit: "business_day", value: 1 } } } },
-  ];
 }
 
 exports.handler = async (event) => {
@@ -106,7 +34,7 @@ exports.handler = async (event) => {
   }
 
   try {
-    const { items, successUrl, cancelUrl, shipTo } = JSON.parse(event.body || "{}");
+    const { items, successUrl, cancelUrl, shipTo, serviceCode } = JSON.parse(event.body || "{}");
     if (!Array.isArray(items) || items.length === 0) {
       return { statusCode: 400, headers: baseHeaders, body: JSON.stringify({ error: "No items in cart" }) };
     }
@@ -178,10 +106,11 @@ exports.handler = async (event) => {
       // Stripe rejects shipping_options in subscription mode, so recurring
       // shipping has to ride along as its own recurring line item instead —
       // otherwise Subscribe & Save orders ship for $0 forever while the
-      // business keeps paying UPS's real cost every renewal. Billed on the
-      // same cadence as the subscription itself (mixed-frequency carts use
-      // the first item's frequency — Checkout only supports one interval
-      // per subscription anyway).
+      // business keeps paying UPS's real cost every renewal. Flat-rate, not
+      // live-quoted — UPS doesn't rate future/recurring shipments, only
+      // real ones being tendered now. Billed on the same cadence as the
+      // subscription itself (mixed-frequency carts use the first item's
+      // frequency — Checkout only supports one interval per subscription).
       if (!qualifiesForFreeShipping) {
         line_items.push({
           price_data: {
@@ -208,8 +137,44 @@ exports.handler = async (event) => {
       }));
     }
 
-    const totalWeightLbs = BOX_BASE_WEIGHT_LBS + items_.reduce((sum, i) => sum + i.quantity * LBS_PER_BAG, 0);
-    const shipping_options = await buildShippingOptions(shipTo, totalWeightLbs, shippingConfig, qualifiesForFreeShipping);
+    // The customer already saw and picked a real, live-quoted rate on our
+    // own shipping-address step (see get-shipping-rate.js) — but we never
+    // trust a client-supplied price. Re-derive the same options server-side
+    // from the same shipTo and match by serviceCode, so what gets charged
+    // is always freshly verified, never just echoed back from the client.
+    // Falls back to the full flat-rate picker (today's Stripe-hosted
+    // behavior) if no shipTo/serviceCode was supplied at all.
+    const totalWeightLbs = computeWeightLbs(items_);
+    const freshOptions = await getShippingOptions(shipTo, totalWeightLbs, shippingConfig, qualifiesForFreeShipping);
+    let shipping_options;
+    if (shipTo && serviceCode) {
+      const chosen = freshOptions.find((o) => o.serviceCode === serviceCode) || freshOptions[0];
+      shipping_options = [
+        {
+          shipping_rate_data: {
+            type: "fixed_amount",
+            fixed_amount: { amount: chosen.amountCents, currency: "usd" },
+            display_name: chosen.displayName,
+            delivery_estimate: {
+              minimum: { unit: "business_day", value: chosen.minDays },
+              maximum: { unit: "business_day", value: chosen.maxDays },
+            },
+          },
+        },
+      ];
+    } else {
+      shipping_options = freshOptions.map((o) => ({
+        shipping_rate_data: {
+          type: "fixed_amount",
+          fixed_amount: { amount: o.amountCents, currency: "usd" },
+          display_name: o.displayName,
+          delivery_estimate: {
+            minimum: { unit: "business_day", value: o.minDays },
+            maximum: { unit: "business_day", value: o.maxDays },
+          },
+        },
+      }));
+    }
 
     const sessionConfig = {
       mode,
@@ -222,7 +187,11 @@ exports.handler = async (event) => {
     };
     if (mode === "payment" || mode === "subscription") {
       // Subscribe & Save ships product on a recurring basis too, so it needs
-      // an address just as much as a one-time order does.
+      // an address just as much as a one-time order does. Still collected
+      // here even when the customer already gave us one on our own shipping
+      // step — this is what the order-recording webhook reads
+      // (session.shipping_details), so it stays the single source of truth
+      // for the address actually saved on the order.
       sessionConfig.shipping_address_collection = { allowed_countries: ["US"] };
     }
     if (mode === "payment") {
