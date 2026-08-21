@@ -2,7 +2,7 @@ const { connectLambda } = require("@netlify/blobs");
 const { getProductByName } = require("./lib/products");
 const { getShippingConfig } = require("./lib/shipping-config");
 const { corsHeaders } = require("./lib/cors");
-const { computeWeightLbs, getShippingOptions } = require("./lib/shipping-rates");
+const { getPackageDetails, getShippingOptions } = require("./lib/shipping-rates");
 
 const SUBSCRIBE_DISCOUNT = 0.1;
 
@@ -48,9 +48,9 @@ exports.handler = async (event) => {
     const shippingConfig = await getShippingConfig();
     const subtotal = items_.reduce((sum, i) => sum + i.price * i.quantity, 0);
     const qualifiesForFreeShipping = subtotal >= (shippingConfig.freeShipThreshold ?? 0);
-    const weightLbs = computeWeightLbs(items_);
+    const packageDetails = getPackageDetails(items_);
 
-    const options = await getShippingOptions(shipTo, weightLbs, shippingConfig, qualifiesForFreeShipping);
+    const options = await getShippingOptions(shipTo, packageDetails, shippingConfig, qualifiesForFreeShipping);
 
     return {
       statusCode: 200,
@@ -59,6 +59,6 @@ exports.handler = async (event) => {
     };
   } catch (err) {
     console.error("Error getting shipping rate:", err.message);
-    return { statusCode: 502, headers, body: JSON.stringify({ error: "Could not calculate shipping right now." }) };
+    return { statusCode: 502, headers, body: JSON.stringify({ error: err.message || "Could not calculate live shipping rates right now — please try again." }) };
   }
 };

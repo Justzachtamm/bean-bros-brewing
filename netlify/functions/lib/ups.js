@@ -79,7 +79,7 @@ function buildAddress({ name, address, city, state, zip, country = "US" }) {
 // differently, transitDays below just comes back null and
 // create-checkout-session.js falls back to its static day-range estimates,
 // so a wrong guess here degrades gracefully rather than breaking rates.
-async function getRates({ shipFrom, shipTo, weightLbs }) {
+async function getRates({ shipFrom, shipTo, weightLbs, packagingCode = "02", dimensions = null }) {
   const token = await getAccessToken();
   const shipperNumber = process.env.UPS_ACCOUNT_NUMBER;
 
@@ -91,8 +91,14 @@ async function getRates({ shipFrom, shipTo, weightLbs }) {
         ShipFrom: buildAddress(shipFrom),
         ShipTo: buildAddress(shipTo),
         Package: {
-          PackagingType: { Code: "02", Description: "Package" },
+          PackagingType: { Code: packagingCode, Description: "Package" },
           PackageWeight: { UnitOfMeasurement: { Code: "LBS" }, Weight: String(weightLbs) },
+          // Dimensions affect dimensional-weight pricing for lightweight-but-
+          // bulky packages (e.g. a bubble mailer) — only sent when supplied,
+          // since UPS ignores/rejects it for some packaging types otherwise.
+          ...(dimensions
+            ? { Dimensions: { UnitOfMeasurement: { Code: "IN" }, Length: dimensions.length, Width: dimensions.width, Height: dimensions.height } }
+            : {}),
         },
         PaymentDetails: {
           ShipmentCharge: [{ Type: "01", BillShipper: { AccountNumber: shipperNumber } }],
@@ -135,7 +141,7 @@ async function getRates({ shipFrom, shipTo, weightLbs }) {
   });
 }
 
-async function createShipment({ shipFrom, shipTo, weightLbs, serviceCode, description }) {
+async function createShipment({ shipFrom, shipTo, weightLbs, serviceCode, description, packagingCode = "02", dimensions = null }) {
   const token = await getAccessToken();
   const shipperNumber = process.env.UPS_ACCOUNT_NUMBER;
 
@@ -152,8 +158,11 @@ async function createShipment({ shipFrom, shipTo, weightLbs, serviceCode, descri
         },
         Service: { Code: serviceCode },
         Package: {
-          Packaging: { Code: "02" },
+          Packaging: { Code: packagingCode },
           PackageWeight: { UnitOfMeasurement: { Code: "LBS" }, Weight: String(weightLbs) },
+          ...(dimensions
+            ? { Dimensions: { UnitOfMeasurement: { Code: "IN" }, Length: dimensions.length, Width: dimensions.width, Height: dimensions.height } }
+            : {}),
         },
       },
       LabelSpecification: { LabelImageFormat: { Code: "PNG" } },

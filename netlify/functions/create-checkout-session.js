@@ -4,7 +4,7 @@ const { getProductByName } = require("./lib/products");
 const { corsHeaders, ALLOWED_ORIGINS } = require("./lib/cors");
 const { getShippingConfig } = require("./lib/shipping-config");
 const { intervalForFrequency } = require("./lib/subscriptions");
-const { computeWeightLbs, getShippingOptions, FLAT_GROUND_RATE_CENTS } = require("./lib/shipping-rates");
+const { getPackageDetails, getShippingOptions, FLAT_GROUND_RATE_CENTS } = require("./lib/shipping-rates");
 
 const SUBSCRIBE_DISCOUNT = 0.1;
 
@@ -137,18 +137,24 @@ exports.handler = async (event) => {
       }));
     }
 
-    // The customer already saw and picked a real, live-quoted rate on our
-    // own shipping-address step (see get-shipping-rate.js) — but we never
-    // trust a client-supplied price. Re-derive the same options server-side
-    // from the same shipTo and match by serviceCode, so what gets charged
-    // is always freshly verified, never just echoed back from the client.
-    // Falls back to the full flat-rate picker (today's Stripe-hosted
-    // behavior) if no shipTo/serviceCode was supplied at all.
-    const totalWeightLbs = computeWeightLbs(items_);
-    const freshOptions = await getShippingOptions(shipTo, totalWeightLbs, shippingConfig, qualifiesForFreeShipping);
+    // The customer already saw and picked a real, live-quoted rate on our own
+    // shipping-address step (see get-shipping-rate.js) — but we never trust a
+    // client-supplied price. Re-derive the same options server-side from the
+    // same shipTo and match by serviceCode, so what gets charged is always
+    // freshly verified, never just echoed back from the client. Only needed
+    // in "payment" mode — subscriptions bill shipping as their own flat
+    // recurring line item above, not through Stripe's shipping_options.
     let shipping_options;
-    if (shipTo && serviceCode) {
-      const chosen = freshOptions.find((o) => o.serviceCode === serviceCode) || freshOptions[0];
+    if (mode === "payment") {
+      if (!shipTo || !serviceCode) {
+        return { statusCode: 400, headers: baseHeaders, body: JSON.stringify({ error: "A shipping address and selected shipping method are required." }) };
+      }
+      const packageDetails = getPackageDetails(items_);
+      const freshOptions = await getShippingOptions(shipTo, packageDetails, shippingConfig, qualifiesForFreeShipping);
+      const chosen = freshOptions.find((o) => o.serviceCode === serviceCode);
+      if (!chosen) {
+        return { statusCode: 400, headers: baseHeaders, body: JSON.stringify({ error: "That shipping method is no longer available — please re-select." }) };
+      }
       shipping_options = [
         {
           shipping_rate_data: {
@@ -162,18 +168,6 @@ exports.handler = async (event) => {
           },
         },
       ];
-    } else {
-      shipping_options = freshOptions.map((o) => ({
-        shipping_rate_data: {
-          type: "fixed_amount",
-          fixed_amount: { amount: o.amountCents, currency: "usd" },
-          display_name: o.displayName,
-          delivery_estimate: {
-            minimum: { unit: "business_day", value: o.minDays },
-            maximum: { unit: "business_day", value: o.maxDays },
-          },
-        },
-      }));
     }
 
     const sessionConfig = {

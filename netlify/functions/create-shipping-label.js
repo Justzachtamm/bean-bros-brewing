@@ -4,9 +4,7 @@ const { getShippingConfig } = require("./lib/shipping-config");
 const { verifyAdminToken } = require("./lib/auth");
 const { corsHeaders } = require("./lib/cors");
 const ups = require("./lib/ups");
-
-const LBS_PER_BAG = 0.9;
-const BOX_BASE_WEIGHT_LBS = 0.5;
+const { getPackageDetails } = require("./lib/shipping-rates");
 
 exports.handler = async (event) => {
   connectLambda(event);
@@ -67,7 +65,7 @@ exports.handler = async (event) => {
 
   try {
     const config = await getShippingConfig();
-    const weightLbs = BOX_BASE_WEIGHT_LBS + order.items.reduce((sum, i) => sum + i.quantity * LBS_PER_BAG, 0);
+    const packageDetails = getPackageDetails(order.items);
 
     const result = await ups.createShipment({
       shipFrom: {
@@ -84,7 +82,9 @@ exports.handler = async (event) => {
         state: order.shippingAddress.state,
         zip: order.shippingAddress.zip,
       },
-      weightLbs,
+      weightLbs: packageDetails.weightLbs,
+      packagingCode: packageDetails.packagingCode,
+      dimensions: packageDetails.dimensions,
       serviceCode: "03", // Ground — admin can be given a service picker later if needed
       description: `Order ${order.id}`,
     });
