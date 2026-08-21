@@ -16,6 +16,18 @@ const UPS_SERVICE_NAMES = {
   "01": { name: "UPS Next Day Air", minDays: 1, maxDays: 1 },
 };
 
+// Address collection now happens entirely on Stripe's hosted checkout page
+// (so its own address validation/correction applies), which means we no
+// longer know the customer's real destination before creating the session —
+// Stripe's shipping_options are fixed at session-creation time and can't be
+// recalculated once the customer types their address on Stripe's page.
+// Rather than guess a price, these tiers are computed from a REAL UPS rate
+// call against a fixed reference destination (a roughly-central, real US
+// address), so the numbers are genuine current UPS pricing — just not
+// specific to each customer's actual location. Columbus, OH is a reasonable
+// stand-in for "typical" US shipping distance from the shop's NJ origin.
+const REFERENCE_SHIP_TO = { name: "Reference Destination", address: "175 S 3rd St", city: "Columbus", state: "OH", zip: "43215" };
+
 // A single 16oz bag (1 lb of product) ships in a bubble mailer instead of a
 // box — lighter overhead and real physical dimensions, which affects
 // dimensional-weight pricing. Two or more bags no longer fit a mailer and go
@@ -39,11 +51,9 @@ function getPackageDetails(items) {
   return { weightLbs: BOX_BASE_WEIGHT_LBS + totalBags * LBS_PER_BAG, packagingCode: "02", dimensions: null };
 }
 
-// Single source of truth for shipping pricing — used by both the live quote
-// endpoint (get-shipping-rate.js) shown to the customer while they type
-// their address, and the final checkout charge (create-checkout-session.js).
-// They must never compute this differently, or the price shown could
-// silently diverge from the price charged.
+// Computes real UPS rate tiers for a given destination (either the fixed
+// REFERENCE_SHIP_TO above, for the static picker shown on Stripe's page, or
+// a real customer address if a caller ever has one).
 //
 // Deliberately has NO flat-rate fallback: a customer must never be shown or
 // charged a shipping price that wasn't actually pulled from UPS. If UPS is
@@ -104,4 +114,4 @@ async function getShippingOptions(shipTo, packageDetails, shippingConfig, qualif
   });
 }
 
-module.exports = { LBS_PER_BAG, BOX_BASE_WEIGHT_LBS, FLAT_GROUND_RATE_CENTS, UPS_SERVICE_NAMES, getPackageDetails, getShippingOptions };
+module.exports = { LBS_PER_BAG, BOX_BASE_WEIGHT_LBS, FLAT_GROUND_RATE_CENTS, UPS_SERVICE_NAMES, REFERENCE_SHIP_TO, getPackageDetails, getShippingOptions };

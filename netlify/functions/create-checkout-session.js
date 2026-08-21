@@ -4,7 +4,7 @@ const { getProductByName } = require("./lib/products");
 const { corsHeaders, ALLOWED_ORIGINS } = require("./lib/cors");
 const { getShippingConfig } = require("./lib/shipping-config");
 const { intervalForFrequency } = require("./lib/subscriptions");
-const { getPackageDetails, getShippingOptions, FLAT_GROUND_RATE_CENTS } = require("./lib/shipping-rates");
+const { getPackageDetails, getShippingOptions, FLAT_GROUND_RATE_CENTS, REFERENCE_SHIP_TO } = require("./lib/shipping-rates");
 
 const SUBSCRIBE_DISCOUNT = 0.1;
 
@@ -34,7 +34,7 @@ exports.handler = async (event) => {
   }
 
   try {
-    const { items, successUrl, cancelUrl, shipTo, serviceCode } = JSON.parse(event.body || "{}");
+    const { items, successUrl, cancelUrl } = JSON.parse(event.body || "{}");
     if (!Array.isArray(items) || items.length === 0) {
       return { statusCode: 400, headers: baseHeaders, body: JSON.stringify({ error: "No items in cart" }) };
     }
@@ -137,37 +137,29 @@ exports.handler = async (event) => {
       }));
     }
 
-    // The customer already saw and picked a real, live-quoted rate on our own
-    // shipping-address step (see get-shipping-rate.js) — but we never trust a
-    // client-supplied price. Re-derive the same options server-side from the
-    // same shipTo and match by serviceCode, so what gets charged is always
-    // freshly verified, never just echoed back from the client. Only needed
-    // in "payment" mode — subscriptions bill shipping as their own flat
-    // recurring line item above, not through Stripe's shipping_options.
+    // Address is collected on Stripe's own hosted page now (its validation/
+    // correction applies there), so we don't know the customer's real
+    // destination yet when this session is created — Stripe's
+    // shipping_options are fixed at creation time regardless. These tiers
+    // are still real, live-pulled UPS rates, just computed against a fixed
+    // reference destination rather than each customer's exact address. Only
+    // needed in "payment" mode — subscriptions bill shipping as their own
+    // flat recurring line item above, not through Stripe's shipping_options.
     let shipping_options;
     if (mode === "payment") {
-      if (!shipTo || !serviceCode) {
-        return { statusCode: 400, headers: baseHeaders, body: JSON.stringify({ error: "A shipping address and selected shipping method are required." }) };
-      }
       const packageDetails = getPackageDetails(items_);
-      const freshOptions = await getShippingOptions(shipTo, packageDetails, shippingConfig, qualifiesForFreeShipping);
-      const chosen = freshOptions.find((o) => o.serviceCode === serviceCode);
-      if (!chosen) {
-        return { statusCode: 400, headers: baseHeaders, body: JSON.stringify({ error: "That shipping method is no longer available — please re-select." }) };
-      }
-      shipping_options = [
-        {
-          shipping_rate_data: {
-            type: "fixed_amount",
-            fixed_amount: { amount: chosen.amountCents, currency: "usd" },
-            display_name: chosen.displayName,
-            delivery_estimate: {
-              minimum: { unit: "business_day", value: chosen.minDays },
-              maximum: { unit: "business_day", value: chosen.maxDays },
-            },
+      const options = await getShippingOptions(REFERENCE_SHIP_TO, packageDetails, shippingConfig, qualifiesForFreeShipping);
+      shipping_options = options.map((o) => ({
+        shipping_rate_data: {
+          type: "fixed_amount",
+          fixed_amount: { amount: o.amountCents, currency: "usd" },
+          display_name: o.displayName,
+          delivery_estimate: {
+            minimum: { unit: "business_day", value: o.minDays },
+            maximum: { unit: "business_day", value: o.maxDays },
           },
         },
-      ];
+      }));
     }
 
     const sessionConfig = {
@@ -180,12 +172,11 @@ exports.handler = async (event) => {
       payment_method_types: ["card"],
     };
     if (mode === "payment" || mode === "subscription") {
-      // Subscribe & Save ships product on a recurring basis too, so it needs
-      // an address just as much as a one-time order does. Still collected
-      // here even when the customer already gave us one on our own shipping
-      // step — this is what the order-recording webhook reads
-      // (session.shipping_details), so it stays the single source of truth
-      // for the address actually saved on the order.
+      // Stripe's own hosted-page address form — includes its own
+      // validation/correction. This is the only place the customer enters
+      // their address; it's also what the order-recording webhook reads
+      // (session.shipping_details), so it's the single source of truth for
+      // the address actually saved on the order.
       sessionConfig.shipping_address_collection = { allowed_countries: ["US"] };
     }
     if (mode === "payment") {
