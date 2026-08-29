@@ -87,9 +87,10 @@ async function getShippingOptions(shipTo, packageDetails, shippingConfig, qualif
     throw new Error("UPS did not return any shipping rates for this address.");
   }
 
-  // UPS's Shop response can list the same serviceCode more than once (e.g.
-  // published vs. negotiated pricing) — keep the cheaper one per code so
-  // the customer doesn't see the same tier listed twice.
+  // Defensive dedupe: keep the cheapest entry per serviceCode so the
+  // customer never sees the same tier listed twice. (Note: negotiated vs.
+  // published pricing is NOT a duplicate entry — ups.getRates already
+  // resolves that per RatedShipment via NegotiatedRateCharges.)
   const cheapestByCode = new Map();
   for (const r of rates) {
     const existing = cheapestByCode.get(r.serviceCode);

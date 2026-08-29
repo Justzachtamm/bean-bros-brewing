@@ -107,6 +107,14 @@ async function getRates({ shipFrom, shipTo, weightLbs, packagingCode = "02", dim
         // with "Delivery Time Information Container is required..." (error
         // 111563). PackageBillType 03 = Non-Document (a physical package).
         DeliveryTimeInformation: { PackageBillType: "03" },
+        // Without this indicator UPS returns ONLY published (retail) rates,
+        // even when ShipperNumber is present on the request — the account's
+        // negotiated discount never appears in the response at all. With it,
+        // each RatedShipment additionally carries NegotiatedRateCharges,
+        // which getRates prefers below. Requires the account to be
+        // authorized for negotiated rates on ups.com; if it isn't, UPS just
+        // omits the field and we fall back to published pricing.
+        ShipmentRatingOptions: { NegotiatedRatesIndicator: "Y" },
       },
     },
   };
@@ -129,16 +137,35 @@ async function getRates({ shipFrom, shipTo, weightLbs, packagingCode = "02", dim
 
   const data = await res.json();
   const rated = data.RateResponse?.RatedShipment || [];
-  return rated.map((r) => {
+  let sawNegotiated = false;
+  const results = rated.map((r) => {
     const days = parseInt(r.GuaranteedDelivery?.BusinessDaysInTransit, 10);
+    // Negotiated (account-discounted) price rides alongside the published
+    // TotalCharges as its own field — it is NOT a duplicate RatedShipment
+    // entry. Prefer it whenever present; fall back to published so a
+    // not-yet-authorized account still gets working (retail) rates.
+    const published = parseFloat(r.TotalCharges.MonetaryValue);
+    const negotiated = parseFloat(r.NegotiatedRateCharges?.TotalCharge?.MonetaryValue);
+    const useNegotiated = Number.isFinite(negotiated);
+    if (useNegotiated) sawNegotiated = true;
     return {
       serviceCode: r.Service.Code,
-      amount: parseFloat(r.TotalCharges.MonetaryValue),
-      currency: r.TotalCharges.CurrencyCode,
+      amount: useNegotiated ? negotiated : published,
+      publishedAmount: published,
+      negotiated: useNegotiated,
+      currency: (useNegotiated ? r.NegotiatedRateCharges.TotalCharge.CurrencyCode : null) || r.TotalCharges.CurrencyCode,
       transitDays: Number.isFinite(days) ? days : null,
       deliveryByTime: r.GuaranteedDelivery?.DeliveryByTime || null,
     };
   });
+  if (rated.length && !sawNegotiated) {
+    // Loud but non-fatal: the request asked for negotiated rates and UPS
+    // didn't return any — usually means the UPS account isn't authorized
+    // for negotiated rates in the developer portal / ups.com yet, so
+    // customers are being quoted full retail pricing.
+    console.warn("UPS returned no NegotiatedRateCharges — quoting PUBLISHED (retail) rates. Check that the UPS account is authorized for negotiated rates.");
+  }
+  return results;
 }
 
 async function createShipment({ shipFrom, shipTo, weightLbs, serviceCode, description, packagingCode = "02", dimensions = null }) {
@@ -157,6 +184,11 @@ async function createShipment({ shipFrom, shipTo, weightLbs, serviceCode, descri
           ShipmentCharge: { Type: "01", BillShipper: { AccountNumber: shipperNumber } },
         },
         Service: { Code: serviceCode },
+        // Same as getRates: without this, the shipment's returned charges
+        // reflect published pricing instead of the account's negotiated
+        // rates (actual invoicing bills the account either way, but the
+        // logged charges should match what the account really pays).
+        ShipmentRatingOptions: { NegotiatedRatesIndicator: "Y" },
         Package: {
           Packaging: { Code: packagingCode },
           PackageWeight: { UnitOfMeasurement: { Code: "LBS" }, Weight: String(weightLbs) },
