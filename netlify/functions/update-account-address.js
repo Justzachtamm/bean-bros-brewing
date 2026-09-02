@@ -2,6 +2,7 @@ const Stripe = require("stripe");
 const { connectLambda } = require("@netlify/blobs");
 const { corsHeaders } = require("./lib/cors");
 const { findCustomerByEmail } = require("./lib/subscriptions");
+const { requireSession } = require("./lib/accounts");
 
 exports.handler = async (event) => {
   connectLambda(event);
@@ -20,10 +21,16 @@ exports.handler = async (event) => {
   }
 
   try {
-    const { email, name, street, city, state, zip } = JSON.parse(event.body || "{}");
-    if (!email || typeof email !== "string") {
-      return { statusCode: 400, headers, body: JSON.stringify({ error: "Email is required" }) };
-    }
+    // Without this, anyone with a customer's email could redirect every one of
+    // their upcoming subscription deliveries to another address.
+    // AUTH: the email is taken from the verified session token, never from the
+    // request body. Before this, anyone who knew a customer's address could
+    // call this endpoint as them.
+    const session = requireSession(event, headers);
+    if (session.error) return session.error;
+    const email = session.email;
+
+    const { name, street, city, state, zip } = JSON.parse(event.body || "{}");
     if (!street || !city || !state || !zip) {
       return { statusCode: 400, headers, body: JSON.stringify({ error: "Street, city, state, and zip are required" }) };
     }

@@ -2,6 +2,7 @@ const Stripe = require("stripe");
 const { connectLambda } = require("@netlify/blobs");
 const { corsHeaders } = require("./lib/cors");
 const { isSelectableFrequency, normalizeFrequency, intervalForFrequency, findCustomerByEmail } = require("./lib/subscriptions");
+const { requireSession } = require("./lib/accounts");
 
 const ACTIONS = new Set(["cancel", "resume", "pause", "unpause", "update-frequency"]);
 
@@ -22,10 +23,17 @@ exports.handler = async (event) => {
   }
 
   try {
-    const { email, subscriptionId, itemId, action, frequency } = JSON.parse(event.body || "{}");
-    if (!email || typeof email !== "string") {
-      return { statusCode: 400, headers, body: JSON.stringify({ error: "Email is required" }) };
-    }
+    // The ownership check further down only proves the subscription belongs to
+    // the customer looked up by THIS email — so the email itself has to be
+    // trustworthy. It now comes from the session token.
+    // AUTH: the email is taken from the verified session token, never from the
+    // request body. Before this, anyone who knew a customer's address could
+    // call this endpoint as them.
+    const session = requireSession(event, headers);
+    if (session.error) return session.error;
+    const email = session.email;
+
+    const { subscriptionId, itemId, action, frequency } = JSON.parse(event.body || "{}");
     if (!subscriptionId || !itemId) {
       return { statusCode: 400, headers, body: JSON.stringify({ error: "subscriptionId and itemId are required" }) };
     }

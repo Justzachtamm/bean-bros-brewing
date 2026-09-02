@@ -1,6 +1,7 @@
 const Stripe = require("stripe");
 const { connectLambda } = require("@netlify/blobs");
 const { corsHeaders, ALLOWED_ORIGINS } = require("./lib/cors");
+const { requireSession } = require("./lib/accounts");
 
 function isAllowedRedirect(url) {
   return typeof url === "string" && ALLOWED_ORIGINS.some((o) => url.startsWith(o));
@@ -23,10 +24,17 @@ exports.handler = async (event) => {
   }
 
   try {
-    const { email, returnUrl } = JSON.parse(event.body || "{}");
-    if (!email || typeof email !== "string") {
-      return { statusCode: 400, headers, body: JSON.stringify({ error: "Email is required" }) };
-    }
+    // The URL this returns is a bearer credential into the customer's Stripe
+    // billing — payment methods, invoices, cancellation. It must never be
+    // mintable from an email address alone.
+    // AUTH: the email is taken from the verified session token, never from the
+    // request body. Before this, anyone who knew a customer's address could
+    // call this endpoint as them.
+    const session = requireSession(event, headers);
+    if (session.error) return session.error;
+    const email = session.email;
+
+    const { returnUrl } = JSON.parse(event.body || "{}");
     if (!isAllowedRedirect(returnUrl)) {
       return { statusCode: 400, headers, body: JSON.stringify({ error: "Invalid return URL" }) };
     }

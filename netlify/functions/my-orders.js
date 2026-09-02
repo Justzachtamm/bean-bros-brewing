@@ -1,6 +1,7 @@
 const { connectLambda } = require("@netlify/blobs");
 const { getOrders } = require("./lib/orders");
 const { corsHeaders } = require("./lib/cors");
+const { requireSession } = require("./lib/accounts");
 
 exports.handler = async (event) => {
   connectLambda(event);
@@ -14,12 +15,14 @@ exports.handler = async (event) => {
   }
 
   try {
-    const { email } = JSON.parse(event.body || "{}");
-    if (!email || typeof email !== "string") {
-      return { statusCode: 400, headers, body: JSON.stringify({ error: "Email is required" }) };
-    }
+    // AUTH: the email is taken from the verified session token, never from the
+    // request body. Before this, anyone who knew a customer's address could
+    // call this endpoint as them.
+    const session = requireSession(event, headers);
+    if (session.error) return session.error;
+    const email = session.email;
 
-    const normalized = email.toLowerCase().trim();
+    const normalized = email;
     const orders = await getOrders();
     const mine = orders
       .filter((o) => (o.customerEmail || "").toLowerCase().trim() === normalized)
