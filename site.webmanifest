@@ -1,0 +1,12 @@
+{
+  "name": "Bean Bros Brewing Co.",
+  "short_name": "Bean Bros",
+  "icons": [
+    { "src": "/favicon-192x192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/favicon-512x512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" }
+  ],
+  "theme_color": "#1a1612",
+  "background_color": "#1a1612",
+  "display": "standalone",
+  "start_url": "/"
+}

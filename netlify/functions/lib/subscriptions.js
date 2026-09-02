@@ -1,16 +1,57 @@
-// Every "frequency" value the frontend offers (weekly/biweekly/triweekly/monthly)
-// maps to a week-based interval — "monthly" here means every 4 weeks, matching
-// the frontend's own label ("Every 4 weeks"), not a calendar month. Keeping this
-// as the single source of truth so checkout and later frequency changes agree.
-const FREQUENCY_INTERVALS = {
-  weekly: { interval: "week", interval_count: 1 },
+// The single source of truth for delivery cadence.
+//
+// SELECTABLE_FREQUENCIES is what the storefront and the account page may
+// offer. LEGACY_INTERVALS additionally covers cadences that are no longer
+// sold but may still exist on live subscriptions, so those keep rendering
+// and billing correctly instead of silently snapping to a default.
+//
+// "monthly" means every 4 weeks, matching the customer-facing label
+// ("Every 4 weeks"), not a calendar month.
+const SELECTABLE_FREQUENCIES = {
   biweekly: { interval: "week", interval_count: 2 },
-  triweekly: { interval: "week", interval_count: 3 },
   monthly: { interval: "week", interval_count: 4 },
 };
 
+const LEGACY_INTERVALS = {
+  weekly: { interval: "week", interval_count: 1 },
+  triweekly: { interval: "week", interval_count: 3 },
+};
+
+const FREQUENCY_INTERVALS = { ...SELECTABLE_FREQUENCIES, ...LEGACY_INTERVALS };
+
+// The storefront's frequency picker historically emitted a different
+// vocabulary ("2-weeks") than this module's keys ("biweekly"). Nothing
+// matched, so intervalForFrequency fell through to its default and EVERY
+// new subscription billed every 4 weeks no matter what the customer chose.
+// The picker now emits canonical keys; these aliases exist so subscriptions
+// created before that fix still resolve to the cadence the customer picked.
+const FREQUENCY_ALIASES = {
+  "1-week": "weekly",
+  "2-weeks": "biweekly",
+  "3-weeks": "triweekly",
+  "4-weeks": "monthly",
+};
+
+const DEFAULT_FREQUENCY = "monthly";
+
+// Maps any historical or current frequency value onto a canonical key.
+// Returns null for anything unrecognised so callers can decide whether to
+// reject it or fall back — never guess silently.
+function normalizeFrequency(frequency) {
+  if (typeof frequency !== "string") return null;
+  const key = frequency.trim();
+  const canonical = FREQUENCY_ALIASES[key] || key;
+  return FREQUENCY_INTERVALS[canonical] ? canonical : null;
+}
+
+function isSelectableFrequency(frequency) {
+  const key = normalizeFrequency(frequency);
+  return !!(key && SELECTABLE_FREQUENCIES[key]);
+}
+
 function intervalForFrequency(frequency) {
-  return FREQUENCY_INTERVALS[frequency] || FREQUENCY_INTERVALS.monthly;
+  const key = normalizeFrequency(frequency);
+  return FREQUENCY_INTERVALS[key || DEFAULT_FREQUENCY];
 }
 
 async function findCustomerByEmail(stripe, email) {
@@ -62,7 +103,7 @@ async function listCustomerSubscriptionItems(stripe, customerId) {
         paused: !!sub.pause_collection,
         productName: (product && product.name) || "Unknown item",
         grindLabel: metadata.grind || "",
-        frequency: metadata.frequency || "monthly",
+        frequency: normalizeFrequency(metadata.frequency) || DEFAULT_FREQUENCY,
         quantity: item.quantity,
         price: (item.price.unit_amount || 0) / 100,
         nextDelivery: new Date(sub.current_period_end * 1000).toISOString(),
@@ -73,4 +114,15 @@ async function listCustomerSubscriptionItems(stripe, customerId) {
   return rows;
 }
 
-module.exports = { FREQUENCY_INTERVALS, intervalForFrequency, findCustomerByEmail, parseShippingAddress, listCustomerSubscriptionItems };
+module.exports = {
+  FREQUENCY_INTERVALS,
+  SELECTABLE_FREQUENCIES,
+  FREQUENCY_ALIASES,
+  DEFAULT_FREQUENCY,
+  normalizeFrequency,
+  isSelectableFrequency,
+  intervalForFrequency,
+  findCustomerByEmail,
+  parseShippingAddress,
+  listCustomerSubscriptionItems,
+};

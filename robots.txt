@@ -1,0 +1,16 @@
+User-agent: *
+Allow: /
+
+# Never block the icons or the homepage — Google needs both to show the logo.
+Allow: /favicon.ico
+Allow: /favicon-48x48.png
+Allow: /favicon-96x96.png
+Allow: /favicon-192x192.png
+Allow: /apple-touch-icon.png
+Allow: /logo-512.png
+Allow: /og-image.png
+
+Disallow: /.netlify/
+Disallow: /api/
+
+Sitemap: https://beanbrosbrewingco.com/sitemap.xml

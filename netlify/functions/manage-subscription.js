@@ -1,7 +1,7 @@
 const Stripe = require("stripe");
 const { connectLambda } = require("@netlify/blobs");
 const { corsHeaders } = require("./lib/cors");
-const { FREQUENCY_INTERVALS, intervalForFrequency, findCustomerByEmail } = require("./lib/subscriptions");
+const { isSelectableFrequency, normalizeFrequency, intervalForFrequency, findCustomerByEmail } = require("./lib/subscriptions");
 
 const ACTIONS = new Set(["cancel", "resume", "pause", "unpause", "update-frequency"]);
 
@@ -32,7 +32,9 @@ exports.handler = async (event) => {
     if (!ACTIONS.has(action)) {
       return { statusCode: 400, headers, body: JSON.stringify({ error: "Unknown action" }) };
     }
-    if (action === "update-frequency" && !FREQUENCY_INTERVALS[frequency]) {
+    // Only cadences currently on sale may be selected. Legacy cadences still
+    // bill correctly on existing subscriptions but can't be switched back to.
+    if (action === "update-frequency" && !isSelectableFrequency(frequency)) {
       return { statusCode: 400, headers, body: JSON.stringify({ error: "Invalid frequency" }) };
     }
 
@@ -89,7 +91,10 @@ exports.handler = async (event) => {
       }
       case "update-frequency": {
         const productId = typeof item.price.product === "string" ? item.price.product : item.price.product.id;
-        const { interval, interval_count } = intervalForFrequency(frequency);
+        // Persist the canonical key, never whatever spelling the client sent,
+        // so metadata stays readable by every other surface.
+        const canonicalFrequency = normalizeFrequency(frequency);
+        const { interval, interval_count } = intervalForFrequency(canonicalFrequency);
         const newPrice = await stripe.prices.create({
           currency: item.price.currency,
           unit_amount: item.price.unit_amount,
@@ -104,7 +109,7 @@ exports.handler = async (event) => {
         // (see create-checkout-session.js) — keep it in sync so the account
         // page and admin views show the new cadence, not the original one.
         const existingMetadata = (typeof item.price.product === "object" && item.price.product.metadata) || {};
-        await stripe.products.update(productId, { metadata: { ...existingMetadata, frequency } });
+        await stripe.products.update(productId, { metadata: { ...existingMetadata, frequency: canonicalFrequency } });
         break;
       }
     }

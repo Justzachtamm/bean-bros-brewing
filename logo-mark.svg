@@ -1,7 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" role="img" aria-label="Bean Bros Brewing Co.">
   <title>Bean Bros Brewing Co.</title>
-  <rect width="512" height="512" rx="112" ry="112" fill="#1a1612"/>
-  <g transform="translate(76.80,142.72) scale(0.160000) translate(0.000000,1416.000000) scale(0.100000,-0.100000)" fill="#faf6f1" stroke="none">
+  <g transform="translate(76.80,142.72) scale(0.160000) translate(0.000000,1416.000000) scale(0.100000,-0.100000)" fill="#1a1612" stroke="none">
     <path d="M6871 14131 c-21 -49 -35 -51 -414 -51 -373 0 -402 -3 -470 -48 -35
 -23 -53 -27 -146 -32 -101 -5 -110 -8 -161 -40 -54 -35 -54 -35 -200 -40 -146
 -5 -146 -5 -200 -40 -51 -32 -60 -35 -160 -40 -100 -5 -109 -8 -160 -40 -51

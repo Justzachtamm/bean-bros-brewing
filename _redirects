@@ -1,1 +1,9 @@
+# Keep crawlable static files out of the SPA catch-all.
+/robots.txt        /robots.txt        200
+/sitemap.xml       /sitemap.xml       200
+/favicon.ico       /favicon.ico       200
+/site.webmanifest  /site.webmanifest  200
+/assets/*          /assets/:splat     200
+
+# SPA fallback (must stay last)
 /*    /index.html   200

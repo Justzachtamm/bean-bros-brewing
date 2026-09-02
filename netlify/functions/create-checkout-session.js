@@ -3,7 +3,7 @@ const { connectLambda } = require("@netlify/blobs");
 const { getProductByName } = require("./lib/products");
 const { corsHeaders, ALLOWED_ORIGINS } = require("./lib/cors");
 const { getShippingConfig } = require("./lib/shipping-config");
-const { intervalForFrequency } = require("./lib/subscriptions");
+const { intervalForFrequency, normalizeFrequency, isSelectableFrequency } = require("./lib/subscriptions");
 const { getPackageDetails, getShippingOptions, FLAT_GROUND_RATE_CENTS, REFERENCE_SHIP_TO } = require("./lib/shipping-rates");
 
 const SUBSCRIBE_DISCOUNT = 0.1;
@@ -53,6 +53,20 @@ exports.handler = async (event) => {
         return { statusCode: 400, headers: baseHeaders, body: JSON.stringify({ error: `Only ${product.stock} left of ${product.name}` }) };
       }
       const isSubscription = !!item.isSubscription;
+      // Never take the client's spelling on trust. An unrecognised cadence
+      // used to fall through to a silent 4-week default, so a customer could
+      // be billed on a schedule they never chose; reject it loudly instead.
+      let frequency = null;
+      if (isSubscription) {
+        if (!isSelectableFrequency(item.frequency)) {
+          return {
+            statusCode: 400,
+            headers: baseHeaders,
+            body: JSON.stringify({ error: `Unsupported delivery frequency for ${product.name}.` }),
+          };
+        }
+        frequency = normalizeFrequency(item.frequency);
+      }
       const price = isSubscription
         ? Math.round(product.price * (1 - SUBSCRIBE_DISCOUNT) * 100) / 100
         : product.price;
@@ -60,7 +74,7 @@ exports.handler = async (event) => {
         name: product.name,
         grindLabel: String(item.grindLabel || "").slice(0, 40),
         frequencyLabel: String(item.frequencyLabel || "").slice(0, 40),
-        frequency: String(item.frequency || "").slice(0, 20),
+        frequency,
         isSubscription,
         quantity,
         price,
@@ -74,7 +88,8 @@ exports.handler = async (event) => {
     const itemMetadata = (item) => ({
       grind: item.grindLabel,
       subscription: String(item.isSubscription),
-      frequency: item.frequency,
+      // Stripe metadata values must be strings — one-time items have no cadence.
+      frequency: item.frequency || "",
     });
     const line_items = items_.map((item) => ({
       price_data: {
@@ -99,6 +114,39 @@ exports.handler = async (event) => {
 
     const hasSubscription = items_.some((i) => i.isSubscription);
     const hasOneTime = items_.some((i) => !i.isSubscription);
+
+    // A Stripe Checkout Session is either "payment" or "subscription" — it
+    // cannot be both. A mixed cart used to fall into "payment" mode, which
+    // charged the subscribe-and-save discount and displayed "Subscribe &
+    // Save" on the line item while creating NO subscription at all. The
+    // customer paid a subscriber price for a single delivery that never
+    // repeated. Refuse the cart instead.
+    if (hasSubscription && hasOneTime) {
+      return {
+        statusCode: 400,
+        headers: baseHeaders,
+        body: JSON.stringify({
+          error: "Subscriptions and one-time items have to be checked out separately. Please place them as two orders.",
+        }),
+      };
+    }
+
+    // Stripe allows exactly one billing interval per subscription, so a cart
+    // mixing cadences cannot be honoured either. This used to bill every
+    // item on the FIRST item's cadence without telling anyone.
+    if (hasSubscription) {
+      const cadences = new Set(items_.map((i) => i.frequency));
+      if (cadences.size > 1) {
+        return {
+          statusCode: 400,
+          headers: baseHeaders,
+          body: JSON.stringify({
+            error: "All items in one subscription must share the same delivery frequency. Please check out each frequency separately.",
+          }),
+        };
+      }
+    }
+
     let mode = "payment";
     let sessionLineItems = line_items;
     if (hasSubscription && !hasOneTime) {
@@ -109,8 +157,7 @@ exports.handler = async (event) => {
       // business keeps paying UPS's real cost every renewal. Flat-rate, not
       // live-quoted — UPS doesn't rate future/recurring shipments, only
       // real ones being tendered now. Billed on the same cadence as the
-      // subscription itself (mixed-frequency carts use the first item's
-      // frequency — Checkout only supports one interval per subscription).
+      // subscription itself (guaranteed uniform by the cadence check above).
       if (!qualifiesForFreeShipping) {
         line_items.push({
           price_data: {
@@ -123,12 +170,14 @@ exports.handler = async (event) => {
         });
       }
     } else {
+      // Reached only when every item is one-time (mixed carts are rejected
+      // above), so no subscription framing belongs on these line items.
       sessionLineItems = items_.map((item) => ({
         price_data: {
           currency: "usd",
           product_data: {
             name: item.name,
-            description: `${item.grindLabel}${item.isSubscription ? ` · Subscribe & Save (${item.frequencyLabel})` : ""}`,
+            description: item.grindLabel,
             metadata: itemMetadata(item),
           },
           unit_amount: Math.round(item.price * 100),
