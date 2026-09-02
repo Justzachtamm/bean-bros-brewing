@@ -1,23 +1,48 @@
 const { getDatabase } = require("@netlify/database");
 
+// @netlify/database's getConnectionString() reads ONE key: NETLIFY_DB_URL.
+// Netlify's own docs and some extension versions provision the variable as
+// NETLIFY_DATABASE_URL instead, and when the names disagree getDatabase()
+// throws MissingDatabaseConnectionError even though the database is wired up
+// correctly — which is exactly what took signup and login down in production
+// while build-time migrations kept working.
+//
+// So resolve the string ourselves from any of the names it may arrive under
+// and pass it explicitly, rather than depending on the library's single guess.
+const CONNECTION_ENV_KEYS = [
+  "NETLIFY_DB_URL",
+  "NETLIFY_DATABASE_URL",
+  "NETLIFY_DATABASE_URL_UNPOOLED",
+  "DATABASE_URL",
+];
+
+function connectionStringFromEnv() {
+  for (const key of CONNECTION_ENV_KEYS) {
+    const value = process.env[key];
+    if (value) return { key, value };
+  }
+  return null;
+}
+
 // One connection object per warm lambda.
 let cached = null;
 function connection() {
-  if (!cached) cached = getDatabase();
+  if (!cached) {
+    const found = connectionStringFromEnv();
+    // Pass it explicitly when we found it; fall back to the library's own
+    // lookup so this keeps working if Netlify starts injecting it by another
+    // route entirely.
+    cached = found ? getDatabase({ connectionString: found.value }) : getDatabase();
+  }
   return cached;
 }
 
 // IMPORTANT: use `pool`, not `httpClient`.
 //
-// getDatabase() returns one of two shapes. It only returns the 'serverless'
-// variant — the one carrying `httpClient` — when NETLIFY_DB_DRIVER is set to
-// "serverless"; otherwise it returns the 'server' variant, which has NO
-// httpClient at all. Reaching for httpClient unconditionally is what took
-// signup and login down in production: it was undefined, so every query threw
-// before it ever reached Postgres.
-//
-// `pool` is present on BOTH shapes (pg.Pool for 'server', Neon's pg-compatible
-// Pool for 'serverless'), so this one code path works either way.
+// getDatabase() returns the 'serverless' shape — the one carrying httpClient —
+// only when NETLIFY_DB_DRIVER === "serverless". Otherwise it returns the
+// 'server' shape, which has NO httpClient. `pool` is present on both (pg.Pool
+// and Neon's pg-compatible Pool), so this one code path works either way.
 //
 // Returns an array of row objects. ALWAYS pass values via `params` ($1, $2, …);
 // never interpolate them into `text`.
@@ -32,18 +57,23 @@ async function one(text, params = []) {
 }
 
 function isConfigured() {
-  return !!process.env.NETLIFY_DB_URL;
+  return !!connectionStringFromEnv();
 }
 
-// Non-sensitive shape report, for diagnosing a connection without exposing the
-// URL. Never returns the connection string.
+// Non-sensitive diagnostics: reports WHICH env key supplied the connection and
+// which driver shape came back, but never the connection string itself.
 function describe() {
+  const found = connectionStringFromEnv();
+  const base = {
+    connectionEnvKey: found ? found.key : null,
+    envKeysPresent: CONNECTION_ENV_KEYS.filter((k) => !!process.env[k]),
+  };
   try {
     const conn = connection();
-    return { ok: true, driver: conn.driver, hasPool: !!conn.pool, hasHttpClient: !!conn.httpClient };
+    return { ...base, ok: true, driver: conn.driver, hasPool: !!conn.pool, hasHttpClient: !!conn.httpClient };
   } catch (err) {
-    return { ok: false, error: err.name || "unknown" };
+    return { ...base, ok: false, error: err.name || "unknown" };
   }
 }
 
-module.exports = { query, one, isConfigured, describe, connection };
+module.exports = { query, one, isConfigured, describe, connection, CONNECTION_ENV_KEYS };

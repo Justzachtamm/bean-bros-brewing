@@ -9,6 +9,12 @@ const BOX_BASE_WEIGHT_LBS = 0.5;
 // getShippingOptions below, which throws rather than ever guessing one.
 const FLAT_GROUND_RATE_CENTS = 799;
 
+// Stripe Checkout rejects a session with more than 5 shipping_options
+// ("Array shipping_options exceeded maximum 5 allowed elements"). UPS returns
+// however many services it feels like for a given lane — more than 5 in
+// practice — so the ladder has to be trimmed before it reaches Stripe.
+const MAX_SHIPPING_OPTIONS = 5;
+
 const UPS_SERVICE_NAMES = {
   "03": { name: "UPS Ground", minDays: 1, maxDays: 5 },
   "12": { name: "UPS 3 Day Select", minDays: 3, maxDays: 3 },
@@ -96,7 +102,20 @@ async function getShippingOptions(shipTo, packageDetails, shippingConfig, qualif
     const existing = cheapestByCode.get(r.serviceCode);
     if (!existing || r.amount < existing.amount) cheapestByCode.set(r.serviceCode, r);
   }
-  return [...cheapestByCode.values()].map((r) => {
+
+  // Prefer the services we have real names for — Ground, 3 Day, 2nd Day, Next
+  // Day — which is a complete ladder for US domestic and never exceeds four.
+  // Anything else UPS returns would render as "UPS Service 59", which is not a
+  // choice a customer can reason about. Unnamed services are only used as a
+  // fallback if UPS somehow returns nothing familiar, so the customer always
+  // gets *some* option rather than an error.
+  const deduped = [...cheapestByCode.values()];
+  const named = deduped.filter((r) => UPS_SERVICE_NAMES[r.serviceCode]);
+  const chosen = (named.length ? named : deduped)
+    .sort((a, b) => a.amount - b.amount)
+    .slice(0, MAX_SHIPPING_OPTIONS);
+
+  return chosen.map((r) => {
     const meta = UPS_SERVICE_NAMES[r.serviceCode] || { name: `UPS Service ${r.serviceCode}`, minDays: 1, maxDays: 7 };
     const minDays = r.transitDays ?? meta.minDays;
     const maxDays = r.transitDays ?? meta.maxDays;
@@ -112,7 +131,10 @@ async function getShippingOptions(shipTo, packageDetails, shippingConfig, qualif
       minDays,
       maxDays,
     };
-  });
+  })
+  // Waiving Ground changes its price to 0, so re-sort afterwards to keep the
+  // cheapest option first in the picker.
+  .sort((a, b) => a.amountCents - b.amountCents);
 }
 
-module.exports = { LBS_PER_BAG, BOX_BASE_WEIGHT_LBS, FLAT_GROUND_RATE_CENTS, UPS_SERVICE_NAMES, REFERENCE_SHIP_TO, getPackageDetails, getShippingOptions };
+module.exports = { LBS_PER_BAG, BOX_BASE_WEIGHT_LBS, FLAT_GROUND_RATE_CENTS, MAX_SHIPPING_OPTIONS, UPS_SERVICE_NAMES, REFERENCE_SHIP_TO, getPackageDetails, getShippingOptions };
