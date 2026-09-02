@@ -20,7 +20,10 @@ exports.handler = async (event) => {
 
   try {
     if (event.httpMethod === "GET") {
-      const user = await A.findUser(session.email, { retries: 2 });
+      const user = await A.findUser(session.email);
+      // Postgres is read-after-write consistent, so a missing row now means the
+      // account genuinely is not there — not that a write is still replicating.
+      // The lag tolerance this used to carry is gone with the store it was for.
       if (!user) return { statusCode: 401, headers, body: JSON.stringify({ error: "Please sign in again." }) };
       return {
         statusCode: 200,
@@ -30,7 +33,7 @@ exports.handler = async (event) => {
     }
 
     const { name, address, currentPassword, newPassword } = JSON.parse(event.body || "{}");
-    const user = await A.findUser(session.email, { retries: 2 });
+    const user = await A.findUser(session.email);
     if (!user) return { statusCode: 401, headers, body: JSON.stringify({ error: "Please sign in again." }) };
 
     const patch = {};

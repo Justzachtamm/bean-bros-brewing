@@ -26,7 +26,7 @@ exports.handler = async (event) => {
       return { statusCode: 429, headers, body: JSON.stringify({ error: "Too many attempts. Please try again in 15 minutes." }) };
     }
 
-    const user = await A.findUser(email, { retries: 2 });
+    const user = await A.findUser(email);
     if (!user || !A.verifyPassword(password, user.passwordHash)) {
       await A.recordFailure(email);
       return { statusCode: 401, headers, body: JSON.stringify({ error: GENERIC }) };

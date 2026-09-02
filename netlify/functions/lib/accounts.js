@@ -1,8 +1,5 @@
 const crypto = require("crypto");
-const { getStore } = require("@netlify/blobs");
-
-const STORE_NAME = "accounts";
-const THROTTLE_KEY = "login-attempts";
+const db = require("./db");
 
 const TOKEN_TTL_MS = 1000 * 60 * 60 * 24 * 30; // 30 days
 const MIN_PASSWORD_LENGTH = 8;
@@ -92,46 +89,32 @@ function requireSession(event, headers) {
   return { email };
 }
 
-// --- user store -------------------------------------------------------------
-// Netlify Blobs reads are EVENTUALLY consistent, and these are Lambda-compat
-// functions: `connectLambda` builds its environment context from only
-// { deployID, edgeURL, siteID, token } — it never sets `uncachedEdgeURL`, and
-// a strongly-consistent read without that throws BlobsConsistencyError. So
-// `consistency: "strong"` is NOT available here; asking for it 500s every
-// signup and login. (Verified against @netlify/blobs 8.2.0 dist/main.cjs.)
-//
-// Measured lag after a write in production: ~2.9s. The mitigation is therefore
-// application-level — see findUser's `retries`.
-function store() {
-  return getStore(STORE_NAME);
-}
-
-const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-
-// One blob per user rather than a single `users` array. The array version was
-// a read-modify-write of the whole list, so two signups landing together would
-// clobber each other and silently drop an account. Per-key writes cannot.
-function userKey(email) {
-  return "user:" + normalizeEmail(email);
-}
-
+// --- user store (Postgres) -------------------------------------------------
+// Postgres gives read-after-write, so the retry/lag machinery this file needed
+// against Netlify Blobs is gone. `findUser` still accepts an options argument
+// so callers did not have to change; it is deliberately ignored.
 function normalizeEmail(email) {
   return String(email || "").toLowerCase().trim();
 }
 
-// `retries` is for callers where a miss is more likely to be replication lag
-// than a genuine absence — a customer signing in moments after signing up
-// should not be told their password is wrong. The delay applies equally to
-// real misses, so it leaks no timing signal about whether an account exists.
-async function findUser(email, { retries = 0 } = {}) {
+const USER_COLUMNS = "id, email, name, password_hash, address, created_at";
+
+function rowToUser(row) {
+  if (!row) return null;
+  return {
+    id: row.id,
+    email: row.email,
+    name: row.name || "",
+    passwordHash: row.password_hash,
+    address: row.address || {},
+    createdAt: row.created_at instanceof Date ? row.created_at.toISOString() : row.created_at,
+  };
+}
+
+async function findUser(email) {
   const key = normalizeEmail(email);
   if (!key) return null;
-  for (let attempt = 0; attempt <= retries; attempt++) {
-    const user = await store().get(userKey(key), { type: "json" });
-    if (user) return user;
-    if (attempt < retries) await sleep(500);
-  }
-  return null;
+  return rowToUser(await db.one(`SELECT ${USER_COLUMNS} FROM accounts WHERE email = $1`, [key]));
 }
 
 // Never returns passwordHash — this is what goes over the wire.
@@ -140,31 +123,42 @@ function publicUser(user) {
   return { id: user.id, name: user.name || "", email: user.email, address: user.address || {}, createdAt: user.createdAt };
 }
 
+// ON CONFLICT DO NOTHING makes the duplicate check ATOMIC. The previous version
+// read first and then wrote, which under an eventually-consistent store let two
+// signups for the same email both believe they were first.
 async function createUser({ name, email, password }) {
   const key = normalizeEmail(email);
-  if (await findUser(key)) return { error: "An account with this email already exists." };
-  const user = {
-    id: "u_" + crypto.randomBytes(8).toString("hex"),
-    name: String(name || "").slice(0, 120),
-    email: key,
-    passwordHash: hashPassword(password),
-    address: {},
-    createdAt: new Date().toISOString(),
-  };
-  await store().setJSON(userKey(key), user);
-  return { user };
+  const row = await db.one(
+    `INSERT INTO accounts (id, email, name, password_hash)
+     VALUES ($1, $2, $3, $4)
+     ON CONFLICT (email) DO NOTHING
+     RETURNING ${USER_COLUMNS}`,
+    ["u_" + crypto.randomBytes(8).toString("hex"), key, String(name || "").slice(0, 120), hashPassword(password)]
+  );
+  if (!row) return { error: "An account with this email already exists." };
+  return { user: rowToUser(row) };
 }
 
+// COALESCE keeps every column the caller did not mention, so a name-only update
+// cannot blank out an address.
 async function updateUser(email, patch) {
   const key = normalizeEmail(email);
-  const existing = await findUser(key);
-  if (!existing) return null;
-  const next = { ...existing };
-  if (typeof patch.name === "string") next.name = patch.name.slice(0, 120);
-  if (patch.address && typeof patch.address === "object") next.address = patch.address;
-  if (patch.newPassword) next.passwordHash = hashPassword(patch.newPassword);
-  await store().setJSON(userKey(key), next);
-  return next;
+  const row = await db.one(
+    `UPDATE accounts SET
+       name          = COALESCE($2, name),
+       address       = COALESCE($3::jsonb, address),
+       password_hash = COALESCE($4, password_hash),
+       updated_at    = now()
+     WHERE email = $1
+     RETURNING ${USER_COLUMNS}`,
+    [
+      key,
+      typeof patch.name === "string" ? patch.name.slice(0, 120) : null,
+      patch.address && typeof patch.address === "object" ? JSON.stringify(patch.address) : null,
+      patch.newPassword ? hashPassword(patch.newPassword) : null,
+    ]
+  );
+  return rowToUser(row);
 }
 
 function validatePassword(password) {
@@ -180,48 +174,45 @@ function validateEmail(email) {
 }
 
 // --- login throttling -------------------------------------------------------
-// Blobs-backed and deliberately simple: enough to stop online password
-// guessing, not a substitute for a real rate limiter at the edge.
-async function throttleState() {
-  return (await store().get(THROTTLE_KEY, { type: "json" })) || {};
-}
-
+// Window reset and increment happen in ONE statement, so two failed logins
+// arriving together cannot lose a count.
 async function isLockedOut(email) {
-  const key = normalizeEmail(email);
-  const state = await throttleState();
-  const rec = state[key];
-  if (!rec) return false;
-  if (Date.now() - rec.first > THROTTLE_WINDOW_MS) return false;
-  return rec.count >= MAX_FAILED_ATTEMPTS;
+  const row = await db.one(
+    `SELECT fail_count FROM account_login_attempts
+     WHERE email = $1 AND window_at > now() - ($2 || ' milliseconds')::interval`,
+    [normalizeEmail(email), String(THROTTLE_WINDOW_MS)]
+  );
+  return !!row && row.fail_count >= MAX_FAILED_ATTEMPTS;
 }
 
 async function recordFailure(email) {
-  const key = normalizeEmail(email);
-  const state = await throttleState();
-  const rec = state[key];
-  if (!rec || Date.now() - rec.first > THROTTLE_WINDOW_MS) state[key] = { count: 1, first: Date.now() };
-  else rec.count += 1;
-  // keep the map from growing without bound
-  for (const [k, v] of Object.entries(state)) {
-    if (Date.now() - v.first > THROTTLE_WINDOW_MS * 4) delete state[k];
-  }
-  await store().setJSON(THROTTLE_KEY, state);
+  await db.query(
+    `INSERT INTO account_login_attempts (email, fail_count, window_at)
+     VALUES ($1, 1, now())
+     ON CONFLICT (email) DO UPDATE SET
+       fail_count = CASE
+         WHEN account_login_attempts.window_at > now() - ($2 || ' milliseconds')::interval
+         THEN account_login_attempts.fail_count + 1
+         ELSE 1
+       END,
+       window_at = CASE
+         WHEN account_login_attempts.window_at > now() - ($2 || ' milliseconds')::interval
+         THEN account_login_attempts.window_at
+         ELSE now()
+       END`,
+    [normalizeEmail(email), String(THROTTLE_WINDOW_MS)]
+  );
 }
 
 async function clearFailures(email) {
-  const key = normalizeEmail(email);
-  const state = await throttleState();
-  if (state[key]) {
-    delete state[key];
-    await store().setJSON(THROTTLE_KEY, state);
-  }
+  await db.query(`DELETE FROM account_login_attempts WHERE email = $1`, [normalizeEmail(email)]);
 }
 
 module.exports = {
   TOKEN_TTL_MS, MIN_PASSWORD_LENGTH, MAX_FAILED_ATTEMPTS,
   hashPassword, verifyPassword,
   issueSession, emailFromAuthHeader, requireSession,
-  normalizeEmail, findUser, createUser, updateUser, publicUser, userKey,
+  normalizeEmail, findUser, createUser, updateUser, publicUser,
   validatePassword, validateEmail,
   isLockedOut, recordFailure, clearFailures,
 };
