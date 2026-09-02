@@ -93,14 +93,20 @@ function requireSession(event, headers) {
 }
 
 // --- user store -------------------------------------------------------------
-// Netlify Blobs reads are EVENTUALLY consistent by default. Measured against
-// production: a freshly signed-up account was invisible to login for ~2.9s.
-// For a catalog that is merely stale for a moment that is fine; for an auth
-// store it means "your password is wrong" right after you set it. Strong
-// consistency costs a little latency and is the correct trade here.
+// Netlify Blobs reads are EVENTUALLY consistent, and these are Lambda-compat
+// functions: `connectLambda` builds its environment context from only
+// { deployID, edgeURL, siteID, token } — it never sets `uncachedEdgeURL`, and
+// a strongly-consistent read without that throws BlobsConsistencyError. So
+// `consistency: "strong"` is NOT available here; asking for it 500s every
+// signup and login. (Verified against @netlify/blobs 8.2.0 dist/main.cjs.)
+//
+// Measured lag after a write in production: ~2.9s. The mitigation is therefore
+// application-level — see findUser's `retries`.
 function store() {
-  return getStore({ name: STORE_NAME, consistency: "strong" });
+  return getStore(STORE_NAME);
 }
+
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 // One blob per user rather than a single `users` array. The array version was
 // a read-modify-write of the whole list, so two signups landing together would
@@ -113,10 +119,19 @@ function normalizeEmail(email) {
   return String(email || "").toLowerCase().trim();
 }
 
-async function findUser(email) {
+// `retries` is for callers where a miss is more likely to be replication lag
+// than a genuine absence — a customer signing in moments after signing up
+// should not be told their password is wrong. The delay applies equally to
+// real misses, so it leaks no timing signal about whether an account exists.
+async function findUser(email, { retries = 0 } = {}) {
   const key = normalizeEmail(email);
   if (!key) return null;
-  return (await store().get(userKey(key), { type: "json" })) || null;
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    const user = await store().get(userKey(key), { type: "json" });
+    if (user) return user;
+    if (attempt < retries) await sleep(500);
+  }
+  return null;
 }
 
 // Never returns passwordHash — this is what goes over the wire.

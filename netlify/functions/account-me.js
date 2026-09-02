@@ -20,7 +20,7 @@ exports.handler = async (event) => {
 
   try {
     if (event.httpMethod === "GET") {
-      const user = await A.findUser(session.email);
+      const user = await A.findUser(session.email, { retries: 2 });
       if (!user) return { statusCode: 401, headers, body: JSON.stringify({ error: "Please sign in again." }) };
       return {
         statusCode: 200,
@@ -30,7 +30,7 @@ exports.handler = async (event) => {
     }
 
     const { name, address, currentPassword, newPassword } = JSON.parse(event.body || "{}");
-    const user = await A.findUser(session.email);
+    const user = await A.findUser(session.email, { retries: 2 });
     if (!user) return { statusCode: 401, headers, body: JSON.stringify({ error: "Please sign in again." }) };
 
     const patch = {};

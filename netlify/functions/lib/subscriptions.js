@@ -44,6 +44,30 @@ function normalizeFrequency(frequency) {
   return FREQUENCY_INTERVALS[canonical] ? canonical : null;
 }
 
+const FREQUENCY_LABELS = {
+  weekly: "Every week",
+  biweekly: "Every 2 weeks",
+  triweekly: "Every 3 weeks",
+  monthly: "Every 4 weeks",
+};
+
+// A subscription's REAL cadence is whatever Stripe bills on — price.recurring —
+// not what product metadata claims. Those two disagreed for every subscription
+// created before the 2026-09-02 cadence fix, so anything customer- or
+// operator-facing should read the interval, and metadata only as a fallback.
+function labelFromRecurring(recurring) {
+  if (!recurring || !recurring.interval) return "";
+  const n = recurring.interval_count || 1;
+  const unit = recurring.interval;
+  if (n === 1) return `Every ${unit}`;
+  return `Every ${n} ${unit}s`;
+}
+
+function labelForFrequency(frequency) {
+  const key = normalizeFrequency(frequency);
+  return key ? FREQUENCY_LABELS[key] : "";
+}
+
 function isSelectableFrequency(frequency) {
   const key = normalizeFrequency(frequency);
   return !!(key && SELECTABLE_FREQUENCIES[key]);
@@ -118,7 +142,10 @@ module.exports = {
   FREQUENCY_INTERVALS,
   SELECTABLE_FREQUENCIES,
   FREQUENCY_ALIASES,
+  FREQUENCY_LABELS,
   DEFAULT_FREQUENCY,
+  labelFromRecurring,
+  labelForFrequency,
   normalizeFrequency,
   isSelectableFrequency,
   intervalForFrequency,
