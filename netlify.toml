@@ -41,11 +41,25 @@
 
     # ---- Content Security Policy ----
     #
-    # REPORT-ONLY for now, deliberately. A CSP that is even slightly wrong
-    # breaks a live storefront silently — a blocked script means a blank page
-    # and lost sales, with nothing shown to the customer. Report-Only sends the
-    # identical policy but only logs violations to the browser console, so the
-    # policy can be verified against the real site before it is enforced.
+    # ENFORCING. This ran in Report-Only first and was verified two ways against
+    # the live site before the switch: every resource the page loads was checked
+    # against the policy (none would be blocked), and a securitypolicyviolation
+    # listener recorded zero violations while walking the storefront, all eight
+    # product cards, and the subscribe flow. The only external origins in play
+    # are fonts.googleapis.com, fonts.gstatic.com and images.unsplash.com, all
+    # explicitly allowed below.
+    #
+    # IF YOU ADD A THIRD-PARTY SCRIPT LATER (analytics, a chat widget, Stripe.js,
+    # a pixel) IT WILL BE BLOCKED until its origin is added to the right
+    # directive here. That is the policy working, not a bug. Stripe.js in
+    # particular needs BOTH:
+    #     script-src ... https://js.stripe.com
+    #     frame-src  https://js.stripe.com
+    # The current redirect-to-Stripe-Checkout flow needs neither.
+    #
+    # To debug a suspected CSP problem, rename this key back to
+    # Content-Security-Policy-Report-Only, redeploy, and read the violations in
+    # the browser console — that logs without blocking.
     #
     # Sources, all verified against what the site actually loads:
     #   script-src   'self'           — one module bundle, served from here
@@ -64,7 +78,7 @@
     #   object-src   'none'           — no Flash/applet vector
     #   base-uri     'self'           — a script cannot rewrite <base> to
     #                                   redirect every relative URL elsewhere
-    Content-Security-Policy-Report-Only = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob: https://images.unsplash.com; media-src 'self' https://assets.mixkit.co https://videos.pexels.com; connect-src 'self' https://api.stripe.com; form-action 'self' https://checkout.stripe.com; frame-ancestors 'none'; base-uri 'self'; object-src 'none'; upgrade-insecure-requests"
+    Content-Security-Policy = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob: https://images.unsplash.com; media-src 'self' https://assets.mixkit.co https://videos.pexels.com; connect-src 'self' https://api.stripe.com; form-action 'self' https://checkout.stripe.com; frame-ancestors 'none'; base-uri 'self'; object-src 'none'; upgrade-insecure-requests"
 
 # Hashed build assets are immutable — cache them hard.
 [[headers]]
