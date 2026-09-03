@@ -41,6 +41,19 @@
 
     # ---- Content Security Policy ----
     #
+    # ENFORCING. Verified against the live site before the switch: every
+    # resource the page loads was checked against this policy (none blocked),
+    # and a securitypolicyviolation listener recorded zero violations while
+    # walking the storefront, all product cards and the subscribe flow.
+    #
+    # A THIRD-PARTY SCRIPT ADDED LATER WILL BE BLOCKED until its origin is added
+    # to the right directive here. That is the policy working. Stripe.js needs
+    # BOTH script-src https://js.stripe.com AND frame-src https://js.stripe.com;
+    # the current redirect-to-Checkout flow needs neither.
+    #
+    # To debug, rename the key back to Content-Security-Policy-Report-Only,
+    # redeploy, and read the violations in the browser console.
+    #
     # REPORT-ONLY for now, deliberately. A CSP that is even slightly wrong
     # breaks a live storefront silently — a blocked script means a blank page
     # and lost sales, with nothing shown to the customer. Report-Only sends the
@@ -64,7 +77,7 @@
     #   object-src   'none'           — no Flash/applet vector
     #   base-uri     'self'           — a script cannot rewrite <base> to
     #                                   redirect every relative URL elsewhere
-    Content-Security-Policy-Report-Only = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob: https://images.unsplash.com; media-src 'self' https://assets.mixkit.co https://videos.pexels.com; connect-src 'self' https://api.stripe.com; form-action 'self' https://checkout.stripe.com; frame-ancestors 'none'; base-uri 'self'; object-src 'none'; upgrade-insecure-requests"
+    Content-Security-Policy = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob: https://images.unsplash.com; media-src 'self' https://assets.mixkit.co https://videos.pexels.com; connect-src 'self' https://api.stripe.com; form-action 'self' https://checkout.stripe.com; frame-ancestors 'none'; base-uri 'self'; object-src 'none'; upgrade-insecure-requests"
 
 # Assets revalidate on every load.
 #
@@ -95,3 +108,20 @@
     Cache-Control = "no-store, no-cache, must-revalidate, private"
     X-Content-Type-Options = "nosniff"
     Referrer-Policy = "no-referrer"
+
+# ---------------------------------------------------------------------------
+# Weekly database backup
+#
+# Sundays 08:00 UTC (Netlify schedules are always UTC). Snapshots accounts,
+# products and orders into a separate Blobs store, keeping the last 12.
+#
+# This exists because Netlify's own database backups are kept for 3 days on
+# this plan — enough to undo a bad deploy you noticed today, not enough to undo
+# a bad write nobody spots until next week.
+#
+# Runs inside Netlify, so it needs no credentials: the database is already in
+# its environment. Read /.netlify/functions/admin-backups (admin-only) to list
+# or download snapshots.
+# ---------------------------------------------------------------------------
+[functions."weekly-backup"]
+  schedule = "0 8 * * 0"
