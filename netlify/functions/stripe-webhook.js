@@ -37,8 +37,14 @@ function toShippingAddress(shippingDetails) {
 }
 
 async function recordOrder(stripe, { id, sourceId, customerId, customerName, customerEmail, items, total, shippingAddress }) {
-  await decrementStock(items);
-  await addOrder({
+  // Order FIRST, stock second, and only when the insert actually created a row.
+  //
+  // The previous order was decrementStock() then addOrder(). addOrder deduped
+  // on sessionId, so a Stripe webhook retry did not duplicate the order — but
+  // decrementStock had already run again by then, so every retry quietly took
+  // the stock a second time. Stripe retries on any non-2xx, and this handler
+  // deliberately returns 500 to ask for a retry, so that path was live.
+  const { order, created } = await addOrder({
     id,
     sessionId: sourceId, // idempotency key — a checkout session id or an invoice id, either way unique per charge
     customerId: customerId || "",
@@ -52,6 +58,13 @@ async function recordOrder(stripe, { id, sourceId, customerId, customerName, cus
     trackingNumber: null,
     labelKey: null,
   });
+
+  if (created) {
+    await decrementStock(items);
+  } else {
+    console.log(`Duplicate webhook for ${sourceId} — order ${order && order.id} already recorded, stock untouched.`);
+  }
+  return { order, created };
 }
 
 exports.handler = async (event) => {

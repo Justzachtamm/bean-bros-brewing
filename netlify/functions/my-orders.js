@@ -1,5 +1,5 @@
 const { connectLambda } = require("@netlify/blobs");
-const { getOrders } = require("./lib/orders");
+const { getOrdersByEmail } = require("./lib/orders");
 const { corsHeaders } = require("./lib/cors");
 const { requireSession } = require("./lib/accounts");
 
@@ -22,11 +22,11 @@ exports.handler = async (event) => {
     if (session.error) return session.error;
     const email = session.email;
 
-    const normalized = email;
-    const orders = await getOrders();
-    const mine = orders
-      .filter((o) => (o.customerEmail || "").toLowerCase().trim() === normalized)
-      .sort((a, b) => new Date(b.date) - new Date(a.date));
+    // Filtered and sorted in SQL. The previous version loaded EVERY order in
+    // the store into this function and filtered in JS — fine at ten orders,
+    // and a memory and latency problem, plus a needless exposure of other
+    // customers' data to this process, at ten thousand.
+    const mine = await getOrdersByEmail(email);
 
     return {
       statusCode: 200,

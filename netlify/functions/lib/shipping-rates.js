@@ -9,10 +9,10 @@ const BOX_BASE_WEIGHT_LBS = 0.5;
 // getShippingOptions below, which throws rather than ever guessing one.
 const FLAT_GROUND_RATE_CENTS = 799;
 
-// Stripe Checkout rejects a session with more than 5 shipping_options
-// ("Array shipping_options exceeded maximum 5 allowed elements"). UPS returns
-// however many services it feels like for a given lane — more than 5 in
-// practice — so the ladder has to be trimmed before it reaches Stripe.
+// Stripe rejects a Checkout Session carrying more than five shipping_options
+// ("Array shipping_options exceeded maximum 5 allowed elements"), which took
+// checkout down entirely for any address where UPS returned six or more
+// services. Cap the list here, at the source, so no caller can trip it.
 const MAX_SHIPPING_OPTIONS = 5;
 
 const UPS_SERVICE_NAMES = {
@@ -103,17 +103,22 @@ async function getShippingOptions(shipTo, packageDetails, shippingConfig, qualif
     if (!existing || r.amount < existing.amount) cheapestByCode.set(r.serviceCode, r);
   }
 
-  // Prefer the services we have real names for — Ground, 3 Day, 2nd Day, Next
-  // Day — which is a complete ladder for US domestic and never exceeds four.
-  // Anything else UPS returns would render as "UPS Service 59", which is not a
-  // choice a customer can reason about. Unnamed services are only used as a
-  // fallback if UPS somehow returns nothing familiar, so the customer always
-  // gets *some* option rather than an error.
+  // Trim to Stripe's five-option ceiling.
+  //
+  // Prefer the four services we have real names and transit estimates for
+  // (Ground, 3 Day Select, 2nd Day Air, Next Day Air). UPS also returns codes
+  // we have no label for, which would render at checkout as "UPS Service 59"
+  // with a guessed 1-7 day estimate — worse for the customer than any named
+  // tier, so those are dropped whenever a named one exists rather than used to
+  // pad the list to five. Unnamed services are used only if UPS returned
+  // nothing else, so a rate is still offered instead of checkout failing.
+  //
+  // Whatever survives is sorted cheapest-first before the cut, so the customer
+  // can never lose the most affordable option to an arbitrary truncation.
   const deduped = [...cheapestByCode.values()];
   const named = deduped.filter((r) => UPS_SERVICE_NAMES[r.serviceCode]);
-  const chosen = (named.length ? named : deduped)
-    .sort((a, b) => a.amount - b.amount)
-    .slice(0, MAX_SHIPPING_OPTIONS);
+  const pool = named.length ? named : deduped;
+  const chosen = pool.slice().sort((a, b) => a.amount - b.amount).slice(0, MAX_SHIPPING_OPTIONS);
 
   return chosen.map((r) => {
     const meta = UPS_SERVICE_NAMES[r.serviceCode] || { name: `UPS Service ${r.serviceCode}`, minDays: 1, maxDays: 7 };
@@ -132,8 +137,9 @@ async function getShippingOptions(shipTo, packageDetails, shippingConfig, qualif
       maxDays,
     };
   })
-  // Waiving Ground changes its price to 0, so re-sort afterwards to keep the
-  // cheapest option first in the picker.
+  // Re-sort AFTER the free-shipping waiver: waiving Ground to $0 can move it
+  // below a tier that was cheaper at full price, and Stripe renders these in
+  // the order given, so sorting before the waiver would show $0 mid-list.
   .sort((a, b) => a.amountCents - b.amountCents);
 }
 

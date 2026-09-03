@@ -1,3 +1,83 @@
 [build]
   publish = "."
   functions = "netlify/functions"
+
+# ---------------------------------------------------------------------------
+# Security headers
+#
+# Before this, the only header the site sent was HSTS. Everything below is
+# defence the browser applies for free once told to; none of it changes how the
+# site behaves for a legitimate visitor.
+# ---------------------------------------------------------------------------
+
+[[headers]]
+  for = "/*"
+  [headers.values]
+    # Stop browsers from MIME-sniffing a response into something executable.
+    X-Content-Type-Options = "nosniff"
+
+    # No one may frame this site — the defence against clickjacking a customer
+    # into clicking "buy" or "cancel subscription" inside an invisible iframe.
+    # frame-ancestors in the CSP below is the modern equivalent; both are sent
+    # because older browsers only understand this one.
+    X-Frame-Options = "DENY"
+
+    # Send the full URL only to ourselves. Cross-origin requests (including any
+    # link a customer clicks out of an order page) get the bare origin, so
+    # order ids and email addresses in a path never leak in a Referer header.
+    Referrer-Policy = "strict-origin-when-cross-origin"
+
+    # This site needs none of these. Denying them means a compromised script
+    # cannot silently reach for a camera, mic, or location prompt.
+    Permissions-Policy = "camera=(), microphone=(), geolocation=(), payment=(), usb=(), interest-cohort=()"
+
+    # Preload-eligible HSTS. Subdomains included so a forgotten http subdomain
+    # cannot be used to set a cookie for the parent domain.
+    Strict-Transport-Security = "max-age=63072000; includeSubDomains; preload"
+
+    # Isolates this browsing context from windows it opens, so a popup cannot
+    # reach back into the page via window.opener.
+    Cross-Origin-Opener-Policy = "same-origin"
+
+    # ---- Content Security Policy ----
+    #
+    # REPORT-ONLY for now, deliberately. A CSP that is even slightly wrong
+    # breaks a live storefront silently — a blocked script means a blank page
+    # and lost sales, with nothing shown to the customer. Report-Only sends the
+    # identical policy but only logs violations to the browser console, so the
+    # policy can be verified against the real site before it is enforced.
+    #
+    # Sources, all verified against what the site actually loads:
+    #   script-src   'self'           — one module bundle, served from here
+    #   style-src    fonts.googleapis — the Google Fonts stylesheet
+    #                'unsafe-inline'  — REQUIRED: the UI is built with React
+    #                                   inline style props, which become style
+    #                                   attributes. Removing this needs the
+    #                                   styles moved into the stylesheet first.
+    #   font-src     fonts.gstatic    — the font files themselves
+    #   img-src      images.unsplash  — hero/section imagery still sourced there
+    #   media-src    mixkit / pexels  — background video
+    #   connect-src  'self'           — every API call is a same-origin
+    #                                   /.netlify/functions/* path
+    #   form-action  checkout.stripe  — where Stripe Checkout submits
+    #   frame-ancestors 'none'        — clickjacking, as above
+    #   object-src   'none'           — no Flash/applet vector
+    #   base-uri     'self'           — a script cannot rewrite <base> to
+    #                                   redirect every relative URL elsewhere
+    Content-Security-Policy-Report-Only = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob: https://images.unsplash.com; media-src 'self' https://assets.mixkit.co https://videos.pexels.com; connect-src 'self' https://api.stripe.com; form-action 'self' https://checkout.stripe.com; frame-ancestors 'none'; base-uri 'self'; object-src 'none'; upgrade-insecure-requests"
+
+# Hashed build assets are immutable — cache them hard.
+[[headers]]
+  for = "/assets/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+
+# Never let a proxy or browser cache an API response. Several of these return
+# one customer's orders, subscriptions, or profile; a shared cache serving that
+# to the next visitor would be a data breach.
+[[headers]]
+  for = "/.netlify/functions/*"
+  [headers.values]
+    Cache-Control = "no-store, no-cache, must-revalidate, private"
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "no-referrer"
