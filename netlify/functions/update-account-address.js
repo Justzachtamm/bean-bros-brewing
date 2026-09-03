@@ -2,7 +2,8 @@ const Stripe = require("stripe");
 const { connectLambda } = require("@netlify/blobs");
 const { corsHeaders } = require("./lib/cors");
 const { findCustomerByEmail } = require("./lib/subscriptions");
-const { requireSession } = require("./lib/accounts");
+const A = require("./lib/accounts");
+const { requireSession } = A;
 
 exports.handler = async (event) => {
   connectLambda(event);
@@ -35,6 +36,21 @@ exports.handler = async (event) => {
       return { statusCode: 400, headers, body: JSON.stringify({ error: "Street, city, state, and zip are required" }) };
     }
 
+    // Save to the account record FIRST. Before this, the address was pushed to
+    // Stripe only — so a customer who had not checked out yet (no Stripe
+    // customer) saw "saved", got {ok:true, synced:false}, and their address was
+    // silently discarded. The profile is the source of truth; Stripe is a sync
+    // target that may not exist yet.
+    const profileAddress = { street, city, state, zip, country: "US" };
+    if (typeof name === "string" && name.trim()) profileAddress.name = name.trim();
+    const savedUser = await A.updateUser(email, {
+      address: profileAddress,
+      ...(typeof name === "string" && name.trim() ? { name: name.trim() } : {}),
+    });
+    if (!savedUser) {
+      return { statusCode: 401, headers, body: JSON.stringify({ error: "Please sign in again." }) };
+    }
+
     const stripe = Stripe(secretKey);
     const customer = await findCustomerByEmail(stripe, email);
     if (!customer) {
@@ -42,8 +58,8 @@ exports.handler = async (event) => {
       // first checkout. Not an error; the local profile save still succeeds.
       return {
         statusCode: 200,
-        headers: { ...headers, "Content-Type": "application/json" },
-        body: JSON.stringify({ ok: true, synced: false }),
+        headers: { ...headers, "Content-Type": "application/json", "Cache-Control": "no-store" },
+        body: JSON.stringify({ ok: true, synced: false, user: A.publicUser(savedUser) }),
       };
     }
 
@@ -86,10 +102,16 @@ exports.handler = async (event) => {
     return {
       statusCode: 200,
       headers: { ...headers, "Content-Type": "application/json" },
-      body: JSON.stringify({ ok: true, synced: true, subscriptionsUpdated: subs.data.length }),
+      body: JSON.stringify({ ok: true, synced: true, subscriptionsUpdated: subs.data.length, user: A.publicUser(savedUser) }),
     };
   } catch (err) {
+    // The profile write already succeeded if we got past it; only the Stripe
+    // sync can fail here. Do not tell the user nothing was saved when it was.
     console.error("Error updating account address:", err.message);
-    return { statusCode: 502, headers, body: JSON.stringify({ error: "Could not reach Stripe" }) };
+    return {
+      statusCode: 502,
+      headers,
+      body: JSON.stringify({ error: "Your address was saved, but we could not sync it to your billing profile. Please try again." }),
+    };
   }
 };
