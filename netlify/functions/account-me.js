@@ -15,10 +15,9 @@ exports.handler = async (event) => {
     return { statusCode: 500, headers, body: JSON.stringify({ error: "Accounts are not configured on the server yet." }) };
   }
 
-  const session = A.requireSession(event, headers);
-  if (session.error) return session.error;
-
   try {
+    const session = await A.requireSession(event, headers, { allowUnverified: true });
+    if (session.error) return session.error;
     if (event.httpMethod === "GET") {
       const user = await A.findUser(session.email);
       // Postgres is read-after-write consistent, so a missing row now means the
@@ -55,7 +54,7 @@ exports.handler = async (event) => {
     return {
       statusCode: 200,
       headers: { ...headers, "Content-Type": "application/json", "Cache-Control": "no-store" },
-      body: JSON.stringify({ ok: true, user: A.publicUser(updated) }),
+      body: JSON.stringify({ ok: true, token: A.issueSession(updated), user: A.publicUser(updated) }),
     };
   } catch (err) {
     console.error("Account me error:", err.message);

@@ -1,6 +1,7 @@
 const { connectLambda } = require("@netlify/blobs");
 const { corsHeaders } = require("./lib/cors");
 const A = require("./lib/accounts");
+const { consumeLimit, clientIp } = require("./lib/rate-limit");
 
 exports.handler = async (event) => {
   connectLambda(event);
@@ -13,6 +14,9 @@ exports.handler = async (event) => {
   }
 
   try {
+    if (!await consumeLimit(`signup:${clientIp(event)}`, 10, 3600)) {
+      return { statusCode: 429, headers, body: JSON.stringify({ error: "Too many signup attempts. Please try again later." }) };
+    }
     const { name, email, password } = JSON.parse(event.body || "{}");
     const emailError = A.validateEmail(email);
     if (emailError) return { statusCode: 400, headers, body: JSON.stringify({ error: emailError }) };
@@ -25,7 +29,7 @@ exports.handler = async (event) => {
     return {
       statusCode: 200,
       headers: { ...headers, "Content-Type": "application/json", "Cache-Control": "no-store" },
-      body: JSON.stringify({ ok: true, token: A.issueSession(user.email), user: A.publicUser(user) }),
+      body: JSON.stringify({ ok: true, token: A.issueSession(user), user: A.publicUser(user) }),
     };
   } catch (err) {
     console.error("Account signup error:", err.message);

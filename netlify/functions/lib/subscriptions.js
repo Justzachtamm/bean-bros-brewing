@@ -78,7 +78,11 @@ function intervalForFrequency(frequency) {
   return FREQUENCY_INTERVALS[key || DEFAULT_FREQUENCY];
 }
 
-async function findCustomerByEmail(stripe, email) {
+async function findCustomerByEmail(stripe, email, customerId = null) {
+  if (customerId) {
+    const customer = await stripe.customers.retrieve(customerId);
+    return customer.deleted ? null : customer;
+  }
   if (!email || typeof email !== "string") return null;
   const customers = await stripe.customers.list({ email: email.toLowerCase().trim(), limit: 1 });
   return customers.data[0] || null;
@@ -98,6 +102,11 @@ function parseShippingAddress(subscription) {
 // per item — a single Stripe Subscription can hold multiple coffees (e.g. two
 // different bags subscribed to in the same checkout), and each is shown and
 // managed independently in the account UI.
+function isShippingItem(item) {
+  const p = item.price?.product;
+  return p?.metadata?.kind === "shipping" || (p?.name === "Shipping" && p?.metadata?.subscription !== "true");
+}
+
 async function listCustomerSubscriptionItems(stripe, customerId) {
   const subs = await stripe.subscriptions.list({
     customer: customerId,
@@ -110,7 +119,7 @@ async function listCustomerSubscriptionItems(stripe, customerId) {
   for (const sub of subs.data) {
     if (sub.status === "incomplete_expired") continue;
     const shippingAddress = parseShippingAddress(sub);
-    for (const item of sub.items.data) {
+    for (const item of sub.items.data.filter(item => !isShippingItem(item))) {
       const product = item.price.product;
       const metadata = (product && typeof product === "object" && product.metadata) || {};
       let status = "active";
@@ -121,15 +130,15 @@ async function listCustomerSubscriptionItems(stripe, customerId) {
       rows.push({
         subscriptionId: sub.id,
         itemId: item.id,
-        itemCount: sub.items.data.length,
+        itemCount: sub.items.data.filter(item => !isShippingItem(item)).length,
         status,
         cancelAtPeriodEnd: sub.cancel_at_period_end,
         paused: !!sub.pause_collection,
         productName: (product && product.name) || "Unknown item",
         grindLabel: metadata.grind || "",
-        frequency: normalizeFrequency(metadata.frequency) || DEFAULT_FREQUENCY,
+        frequency: Object.keys(FREQUENCY_INTERVALS).find(key => FREQUENCY_INTERVALS[key].interval === item.price.recurring?.interval && FREQUENCY_INTERVALS[key].interval_count === item.price.recurring?.interval_count) || normalizeFrequency(metadata.frequency) || DEFAULT_FREQUENCY,
         quantity: item.quantity,
-        price: (item.price.unit_amount || 0) / 100,
+        price: (item.price.unit_amount || 0) * (item.quantity || 1) / 100,
         nextDelivery: new Date(sub.current_period_end * 1000).toISOString(),
         shippingAddress,
       });
@@ -139,6 +148,7 @@ async function listCustomerSubscriptionItems(stripe, customerId) {
 }
 
 module.exports = {
+  isShippingItem,
   FREQUENCY_INTERVALS,
   SELECTABLE_FREQUENCIES,
   FREQUENCY_ALIASES,

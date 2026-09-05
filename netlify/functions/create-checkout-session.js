@@ -1,20 +1,20 @@
 const Stripe = require("stripe");
+const crypto = require("crypto");
+const { requireSession } = require("./lib/accounts");
+const { checkoutCustomer } = require("./lib/customer");
+const { isAllowedRedirect, checkoutSuccessUrl } = require("./lib/redirects");
 const { connectLambda } = require("@netlify/blobs");
 const { getProductByName } = require("./lib/products");
-const { corsHeaders, ALLOWED_ORIGINS } = require("./lib/cors");
+const { corsHeaders } = require("./lib/cors");
 const { getShippingConfig } = require("./lib/shipping-config");
 const { intervalForFrequency, normalizeFrequency, isSelectableFrequency } = require("./lib/subscriptions");
 const { getPackageDetails, getShippingOptions, FLAT_GROUND_RATE_CENTS, REFERENCE_SHIP_TO } = require("./lib/shipping-rates");
 
 const SUBSCRIBE_DISCOUNT = 0.1;
 
-function isAllowedRedirect(url) {
-  return typeof url === "string" && ALLOWED_ORIGINS.some((o) => url.startsWith(o));
-}
-
 exports.handler = async (event) => {
   connectLambda(event);
-  const baseHeaders = corsHeaders(event);
+  const baseHeaders = corsHeaders(event, { "Cache-Control": "no-store", "Content-Type": "application/json" });
 
   if (event.httpMethod === "OPTIONS") {
     return { statusCode: 200, headers: baseHeaders, body: "" };
@@ -35,21 +35,30 @@ exports.handler = async (event) => {
 
   try {
     const { items, successUrl, cancelUrl } = JSON.parse(event.body || "{}");
-    if (!Array.isArray(items) || items.length === 0) {
+    if (!Array.isArray(items) || items.length === 0 || items.length > 50) {
       return { statusCode: 400, headers: baseHeaders, body: JSON.stringify({ error: "No items in cart" }) };
     }
     if (!isAllowedRedirect(successUrl) || !isAllowedRedirect(cancelUrl)) {
       return { statusCode: 400, headers: baseHeaders, body: JSON.stringify({ error: "Invalid redirect URL" }) };
     }
 
+    const needsAccount = items.some((item) => item?.isSubscription) || !!(event.headers?.authorization || event.headers?.Authorization);
+    const account = needsAccount ? await requireSession(event, baseHeaders) : null;
+    if (account?.error) return account.error;
     const items_ = [];
+    const counts = new Map();
+    const grindLabels = { "whole-bean": "Whole Bean", espresso: "Espresso", drip: "Drip", "pour-over": "Pour Over", "french-press": "French Press", "cold-brew": "Cold Brew" };
     for (const item of items) {
+      if (!item || typeof item.name !== "string") throw new Error("Invalid cart item");
       const product = await getProductByName(item.name);
       if (!product || !product.active) {
         return { statusCode: 400, headers: baseHeaders, body: JSON.stringify({ error: `Unknown product: ${item.name}` }) };
       }
-      const quantity = Math.max(1, Math.min(50, parseInt(item.quantity, 10) || 1));
-      if (quantity > product.stock) {
+      const quantity = item.quantity;
+      if (!Number.isInteger(quantity) || quantity < 1 || quantity > 50) throw new Error("Quantity must be between 1 and 50.");
+      const combined = (counts.get(product.id) || 0) + quantity;
+      counts.set(product.id, combined);
+      if (combined > product.stock) {
         return { statusCode: 400, headers: baseHeaders, body: JSON.stringify({ error: `Only ${product.stock} left of ${product.name}` }) };
       }
       const isSubscription = !!item.isSubscription;
@@ -70,9 +79,12 @@ exports.handler = async (event) => {
       const price = isSubscription
         ? Math.round(product.price * (1 - SUBSCRIBE_DISCOUNT) * 100) / 100
         : product.price;
+      const grindLabel = grindLabels[item.grind] || Object.values(grindLabels).find((label) => label === item.grindLabel);
+      if (!grindLabel) throw new Error("Select a valid grind.");
       items_.push({
+        productId: product.id,
         name: product.name,
-        grindLabel: String(item.grindLabel || "").slice(0, 40),
+        grindLabel,
         frequencyLabel: String(item.frequencyLabel || "").slice(0, 40),
         frequency,
         isSubscription,
@@ -87,6 +99,8 @@ exports.handler = async (event) => {
     // instead of parsing description strings.
     const itemMetadata = (item) => ({
       grind: item.grindLabel,
+      product_id: String(item.productId),
+      kind: "coffee",
       subscription: String(item.isSubscription),
       // Stripe metadata values must be strings — one-time items have no cadence.
       frequency: item.frequency || "",
@@ -162,7 +176,7 @@ exports.handler = async (event) => {
         line_items.push({
           price_data: {
             currency: "usd",
-            product_data: { name: "Shipping" },
+            product_data: { name: "Shipping", metadata: { kind: "shipping", service_code: "03" } },
             unit_amount: FLAT_GROUND_RATE_CENTS,
             recurring: intervalForFrequency(items_[0].frequency),
           },
@@ -203,6 +217,7 @@ exports.handler = async (event) => {
           type: "fixed_amount",
           fixed_amount: { amount: o.amountCents, currency: "usd" },
           display_name: o.displayName,
+          metadata: { service_code: o.serviceCode },
           delivery_estimate: {
             minimum: { unit: "business_day", value: o.minDays },
             maximum: { unit: "business_day", value: o.maxDays },
@@ -211,10 +226,12 @@ exports.handler = async (event) => {
       }));
     }
 
+    const receiptToken = crypto.randomBytes(32).toString("hex");
     const sessionConfig = {
       mode,
+      metadata: { receipt_token_hash: crypto.createHash("sha256").update(receiptToken).digest("hex"), fulfillment_version: "2" },
       line_items: sessionLineItems,
-      success_url: `${successUrl}?session_id={CHECKOUT_SESSION_ID}`,
+      success_url: checkoutSuccessUrl(successUrl),
       cancel_url: cancelUrl,
       billing_address_collection: "required",
       phone_number_collection: { enabled: true },
@@ -240,11 +257,19 @@ exports.handler = async (event) => {
       sessionConfig.customer_creation = "always";
     }
 
+    if (account) {
+      sessionConfig.customer = await checkoutCustomer(stripe, account.user);
+      delete sessionConfig.customer_creation;
+      sessionConfig.client_reference_id = account.user.id;
+    }
+    if (mode === "subscription") {
+      sessionConfig.subscription_data = { metadata: { fulfillment_version: "2", shipping_service: "03" } };
+    }
     const session = await stripe.checkout.sessions.create(sessionConfig);
     return {
       statusCode: 200,
       headers: { ...baseHeaders, "Content-Type": "application/json" },
-      body: JSON.stringify({ url: session.url, sessionId: session.id }),
+      body: JSON.stringify({ url: session.url, sessionId: session.id, receiptToken }),
     };
   } catch (err) {
     console.error("Stripe Checkout error:", err.message);

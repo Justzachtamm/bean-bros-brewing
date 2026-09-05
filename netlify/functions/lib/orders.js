@@ -57,12 +57,12 @@ async function getOrderById(id) {
 // how the caller knows not to decrement stock a second time.
 //
 // Returns { order, created }. `created` is false for a duplicate.
-async function addOrder(order) {
-  const row = await db.one(
+async function addOrder(order, executor = db) {
+  const row = await executor.one(
     `INSERT INTO orders (id, session_id, customer_id, customer_name, customer_email,
                          items, total, status, shipping_address, tracking_number,
-                         label_key, ordered_at)
-     VALUES ($1,$2,$3,$4,$5,$6::jsonb,$7,$8,$9::jsonb,$10,$11,COALESCE($12::timestamptz, now()))
+                         label_key, ordered_at, extra)
+     VALUES ($1,$2,$3,$4,$5,$6::jsonb,$7,$8,$9::jsonb,$10,$11,COALESCE($12::timestamptz, now()),$13::jsonb)
      ON CONFLICT (session_id) DO NOTHING
      RETURNING ${COLUMNS}`,
     [
@@ -78,12 +78,13 @@ async function addOrder(order) {
       order.trackingNumber || null,
       order.labelKey || null,
       order.date || null,
+      JSON.stringify(order.extra || {}),
     ]
   );
   if (row) return { order: toOrder(row), created: true };
   // Already recorded — hand back the existing row so callers can still respond
   // with the order rather than treating a retry as a failure.
-  const existing = await db.one(`SELECT ${COLUMNS} FROM orders WHERE session_id = $1`, [String(order.sessionId)]);
+  const existing = await executor.one(`SELECT ${COLUMNS} FROM orders WHERE session_id = $1`, [String(order.sessionId)]);
   return { order: toOrder(existing), created: false };
 }
 
@@ -130,4 +131,39 @@ async function updateOrder(id, patch) {
   return toOrder(row);
 }
 
-module.exports = { getOrders, getOrdersByEmail, getOrderById, addOrder, updateOrder, toOrder };
+async function getOrderBySource(source) {
+  return toOrder(await db.one(`SELECT ${COLUMNS} FROM orders WHERE session_id = $1`, [source]));
+}
+
+// The order and stock must commit together, including on webhook retries.
+async function recordPaidOrder(order) {
+  const client = await db.connection().pool.connect();
+  const executor = { one: async (sql, params) => (await client.query(sql, params)).rows[0] || null };
+  try {
+    await client.query("BEGIN");
+    const result = await addOrder(order, executor);
+    if (result.created) {
+      for (const item of order.items || []) {
+        if (item.isShipping) continue;
+        if (!Number.isInteger(item.quantity) || item.quantity < 1) throw new Error("Invalid order quantity");
+        await client.query(`UPDATE products SET stock = GREATEST(0, stock - $2), updated_at = now()
+          WHERE ${item.productId ? "id = $1" : "lower(name) = $1"}`,
+          [item.productId || String(item.name).trim().toLowerCase(), item.quantity]);
+      }
+    }
+    await client.query("COMMIT");
+    return result;
+  } catch (err) {
+    await client.query("ROLLBACK").catch(() => {});
+    throw err;
+  } finally { client.release(); }
+}
+
+// No timed retry: an uncertain carrier response may already have purchased a label.
+async function claimLabel(id) {
+  return toOrder(await db.one(`UPDATE orders SET extra = extra || jsonb_build_object('labelCreationStartedAt', $2::text)
+    WHERE id = $1 AND tracking_number IS NULL AND extra->>'labelCreationStartedAt' IS NULL RETURNING ${COLUMNS}`,
+    [String(id), new Date().toISOString()]));
+}
+
+module.exports = { getOrderBySource, recordPaidOrder, claimLabel, getOrders, getOrdersByEmail, getOrderById, addOrder, updateOrder, toOrder };

@@ -1,4 +1,5 @@
 const crypto = require("crypto");
+const { consumeLimit, clientIp } = require("./lib/rate-limit");
 
 const ALLOWED_ORIGINS = ["https://beanbrosbrewingco.com", "http://localhost:8888"];
 const TOKEN_TTL_MS = 1000 * 60 * 60 * 2; // 2 hours
@@ -25,7 +26,8 @@ exports.handler = async (event) => {
     "Access-Control-Allow-Origin": allowOrigin,
     "Access-Control-Allow-Headers": "Content-Type",
     "Access-Control-Allow-Methods": "POST, OPTIONS",
-    "Vary": "Origin"
+    "Vary": "Origin",
+    "Cache-Control": "no-store"
   };
 
   if (event.httpMethod === "OPTIONS") {
@@ -47,6 +49,9 @@ exports.handler = async (event) => {
   }
 
   try {
+    if (!await consumeLimit(`admin-login:${clientIp(event)}`, 10, 900)) {
+      return { statusCode: 429, headers: { ...baseHeaders, "Retry-After": "900" }, body: JSON.stringify({ error: "Too many attempts. Try again in 15 minutes." }) };
+    }
     const { password } = JSON.parse(event.body || "{}");
     if (!safeEqual(password, expectedPassword)) {
       return { statusCode: 401, headers: baseHeaders, body: JSON.stringify({ error: "Invalid password" }) };

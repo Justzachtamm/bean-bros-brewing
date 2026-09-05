@@ -1,7 +1,8 @@
 const Stripe = require("stripe");
 const { connectLambda } = require("@netlify/blobs");
-const { decrementStock } = require("./lib/products");
-const { addOrder } = require("./lib/orders");
+const { recordPaidOrder } = require("./lib/orders");
+const { isShippingItem } = require("./lib/subscriptions");
+const { shippingService } = require("./lib/fulfillment");
 
 // Turns Stripe line items (from a Checkout Session or an Invoice) into our
 // internal order-item shape, reading grind/frequency back from the
@@ -13,6 +14,8 @@ function toOrderItems(lineItems) {
     const metadata = (product && typeof product === "object" && product.metadata) || {};
     return {
       name: (product && product.name) || li.description || "Unknown item",
+      productId: metadata.product_id || null,
+      isShipping: isShippingItem(li),
       grind: metadata.grind || "",
       isSubscription: metadata.subscription === "true",
       frequency: metadata.frequency || "",
@@ -36,35 +39,12 @@ function toShippingAddress(shippingDetails) {
   };
 }
 
-async function recordOrder(stripe, { id, sourceId, customerId, customerName, customerEmail, items, total, shippingAddress }) {
-  // Order FIRST, stock second, and only when the insert actually created a row.
-  //
-  // The previous order was decrementStock() then addOrder(). addOrder deduped
-  // on sessionId, so a Stripe webhook retry did not duplicate the order — but
-  // decrementStock had already run again by then, so every retry quietly took
-  // the stock a second time. Stripe retries on any non-2xx, and this handler
-  // deliberately returns 500 to ask for a retry, so that path was live.
-  const { order, created } = await addOrder({
-    id,
-    sessionId: sourceId, // idempotency key — a checkout session id or an invoice id, either way unique per charge
-    customerId: customerId || "",
-    date: new Date().toISOString(),
-    customerName: customerName || "Unknown",
-    customerEmail: customerEmail || "",
-    items,
-    total,
-    status: "Paid",
-    shippingAddress: shippingAddress || null,
-    trackingNumber: null,
-    labelKey: null,
-  });
-
-  if (created) {
-    await decrementStock(items);
-  } else {
-    console.log(`Duplicate webhook for ${sourceId} — order ${order && order.id} already recorded, stock untouched.`);
-  }
-  return { order, created };
+async function recordOrder(stripe, { id, sourceId, customerId, customerName, customerEmail, items, total, shippingAddress, shippingService }) {
+  if (!shippingAddress?.address || !shippingAddress.zip) throw new Error("Shipping address is missing; retry after Checkout is available");
+  return recordPaidOrder({ id, sessionId: sourceId, customerId: customerId || "",
+    date: new Date().toISOString(), customerName: customerName || "Unknown",
+    customerEmail: customerEmail || "", items, total, status: "Paid", shippingAddress,
+    extra: { shippingService }, trackingNumber: null, labelKey: null });
 }
 
 exports.handler = async (event) => {
@@ -94,9 +74,9 @@ exports.handler = async (event) => {
   }
 
   try {
-    if (stripeEvent.type === "checkout.session.completed") {
+    if (["checkout.session.completed", "checkout.session.async_payment_succeeded"].includes(stripeEvent.type)) {
       const session = stripeEvent.data.object;
-      if (session.mode === "payment") {
+      if (session.mode === "payment" && ["paid", "no_payment_required"].includes(session.payment_status)) {
         // One-time orders are recorded here — this event fires once, exactly
         // when the payment succeeds.
         const lineItems = await stripe.checkout.sessions.listLineItems(session.id, {
@@ -111,7 +91,8 @@ exports.handler = async (event) => {
           customerEmail: session.customer_details?.email,
           items: toOrderItems(lineItems.data),
           total: (session.amount_total || 0) / 100,
-          shippingAddress: toShippingAddress(session.shipping_details),
+          shippingAddress: toShippingAddress(session.shipping_details || session.collected_information?.shipping_details),
+          shippingService: await shippingService(stripe, session),
         });
       } else if (session.mode === "subscription" && session.subscription) {
         // Subscriptions are recorded via invoice.paid instead (fires for the
@@ -121,7 +102,7 @@ exports.handler = async (event) => {
         // checkout — Invoices don't carry it. Stash it on the Subscription's
         // own metadata so every future invoice.paid (including this first
         // one) can read it back.
-        const shipping = toShippingAddress(session.shipping_details);
+        const shipping = toShippingAddress(session.shipping_details || session.collected_information?.shipping_details);
         if (shipping) {
           const subscriptionId = typeof session.subscription === "string" ? session.subscription : session.subscription.id;
           await stripe.subscriptions.update(subscriptionId, {
@@ -139,6 +120,7 @@ exports.handler = async (event) => {
       });
       const customer = invoice.customer;
       const subscription = invoice.subscription;
+      if (!subscription) return { statusCode: 200, body: JSON.stringify({ received: true }) };
       let shippingAddress = null;
       if (subscription && typeof subscription === "object" && subscription.metadata?.shipping_address) {
         try {
@@ -147,6 +129,14 @@ exports.handler = async (event) => {
           shippingAddress = null;
         }
       }
+      if (!shippingAddress) {
+        const subscriptionId = typeof subscription === "string" ? subscription : subscription.id;
+        const sessions = await stripe.checkout.sessions.list({ subscription: subscriptionId, limit: 1 });
+        const checkout = sessions.data[0];
+        shippingAddress = toShippingAddress(checkout?.shipping_details || checkout?.collected_information?.shipping_details);
+        // Read Checkout directly: Stripe may deliver invoice.paid before checkout.session.completed.
+      }
+      if (invoice.lines.has_more) throw new Error("Invoice has too many lines to fulfill safely");
       await recordOrder(stripe, {
         id: "BB-" + invoice.id.slice(-8).toUpperCase(),
         sourceId: invoice.id,
@@ -156,6 +146,7 @@ exports.handler = async (event) => {
         items: toOrderItems(invoice.lines.data),
         total: (invoice.amount_paid || 0) / 100,
         shippingAddress,
+        shippingService: subscription.metadata?.shipping_service || "03",
       });
     }
   } catch (err) {

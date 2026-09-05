@@ -1,9 +1,11 @@
 const { getStore, connectLambda } = require("@netlify/blobs");
-const { getOrders, updateOrder } = require("./lib/orders");
+const { getOrderById, updateOrder, claimLabel } = require("./lib/orders");
 const { getShippingConfig } = require("./lib/shipping-config");
 const { verifyAdminToken } = require("./lib/auth");
 const { corsHeaders } = require("./lib/cors");
 const ups = require("./lib/ups");
+const Stripe = require("stripe");
+const { shippingService } = require("./lib/fulfillment");
 const { getPackageDetails } = require("./lib/shipping-rates");
 
 exports.handler = async (event) => {
@@ -37,8 +39,7 @@ exports.handler = async (event) => {
     return { statusCode: 400, headers, body: JSON.stringify({ error: "orderId is required" }) };
   }
 
-  const orders = await getOrders();
-  const order = orders.find((o) => o.id === orderId);
+  const order = await getOrderById(orderId);
   if (!order) {
     return { statusCode: 404, headers, body: JSON.stringify({ error: "Order not found" }) };
   }
@@ -52,20 +53,27 @@ exports.handler = async (event) => {
   if (!order.shippingAddress) {
     return { statusCode: 400, headers, body: JSON.stringify({ error: "This order has no shipping address on file (subscription renewals don't currently capture one)." }) };
   }
-  // Guard against two overlapping invocations for the same order both
-  // reaching UPS's real, billable ship endpoint (e.g. a slow response
-  // triggering a client or proxy retry while the first call is still in
-  // flight) — a real failure mode observed while testing this locally.
-  // Auto-expires so a genuinely crashed invocation doesn't wedge retries.
-  const LOCK_TTL_MS = 2 * 60 * 1000;
-  if (order.labelCreationStartedAt && Date.now() - order.labelCreationStartedAt < LOCK_TTL_MS) {
-    return { statusCode: 409, headers, body: JSON.stringify({ error: "A label is already being created for this order — try again in a moment." }) };
+  if (!order.shippingService && process.env.STRIPE_SECRET_KEY) {
+    try {
+      const stripe = Stripe(process.env.STRIPE_SECRET_KEY);
+      if (order.sessionId.startsWith("cs_")) {
+        order.shippingService = await shippingService(stripe, await stripe.checkout.sessions.retrieve(order.sessionId));
+      } else if (order.sessionId.startsWith("in_")) {
+        const invoice = await stripe.invoices.retrieve(order.sessionId, { expand: ["subscription"] });
+        if (invoice.subscription) order.shippingService = invoice.subscription.metadata?.shipping_service || "03";
+      }
+      if (order.shippingService) await updateOrder(order.id, { shippingService: order.shippingService });
+    } catch { /* Fail closed instead of silently downgrading a paid service. */ }
   }
-  await updateOrder(order.id, { labelCreationStartedAt: Date.now() });
+  if (!order.shippingService || !/^\d{2}$/.test(order.shippingService)) {
+    return { statusCode: 409, headers, body: JSON.stringify({ error: "Shipping service is not recorded. Confirm the service paid for in Stripe before creating this label." }) };
+  }
+  const claimed = await claimLabel(order.id);
+  if (!claimed) return { statusCode: 409, headers, body: JSON.stringify({ error: "A label attempt already exists. Check UPS and the order before retrying to avoid a duplicate charge." }) };
 
   try {
     const config = await getShippingConfig();
-    const packageDetails = getPackageDetails(order.items);
+    const packageDetails = getPackageDetails(order.items.filter(item => !item.isShipping));
 
     const result = await ups.createShipment({
       shipFrom: {
@@ -78,6 +86,8 @@ exports.handler = async (event) => {
       shipTo: {
         name: order.shippingAddress.name || order.customerName,
         address: order.shippingAddress.address,
+        address2: order.shippingAddress.address2,
+        country: order.shippingAddress.country || "US",
         city: order.shippingAddress.city,
         state: order.shippingAddress.state,
         zip: order.shippingAddress.zip,
@@ -85,19 +95,19 @@ exports.handler = async (event) => {
       weightLbs: packageDetails.weightLbs,
       packagingCode: packageDetails.packagingCode,
       dimensions: packageDetails.dimensions,
-      serviceCode: "03", // Ground — admin can be given a service picker later if needed
+      serviceCode: order.shippingService,
       description: `Order ${order.id}`,
     });
 
     let labelKey = null;
     if (result.labelBase64) {
       labelKey = `label-${order.id}.png`;
-      await getStore("images").set(labelKey, Buffer.from(result.labelBase64, "base64"), {
+      await getStore("shipping-labels").set(labelKey, Buffer.from(result.labelBase64, "base64"), {
         metadata: { contentType: "image/png" },
       });
     }
 
-    await updateOrder(order.id, { trackingNumber: result.trackingNumber, labelKey, shipmentId: result.shipmentId, labelCreationStartedAt: null });
+    await updateOrder(order.id, { trackingNumber: result.trackingNumber, labelKey, shipmentId: result.shipmentId, labelStore: "shipping-labels", labelCreationStartedAt: null });
 
     return {
       statusCode: 200,
@@ -106,7 +116,7 @@ exports.handler = async (event) => {
     };
   } catch (err) {
     console.error("Error creating UPS shipment:", err.message);
-    await updateOrder(order.id, { labelCreationStartedAt: null }).catch(() => {});
-    return { statusCode: 502, headers, body: JSON.stringify({ error: err.message }) };
+    // Keep the claim: a timeout does not prove UPS did not create a shipment.
+    return { statusCode: 502, headers, body: JSON.stringify({ error: "Label creation could not be confirmed. Check UPS before retrying; a shipment may already exist." }) };
   }
 };

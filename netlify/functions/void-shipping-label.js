@@ -44,7 +44,7 @@ exports.handler = async (event) => {
     await ups.voidShipment({ shipmentId: order.shipmentId, trackingNumber: order.trackingNumber });
 
     if (order.labelKey) {
-      await getStore("images").delete(order.labelKey).catch(() => {});
+      await getStore(order.labelStore === "shipping-labels" ? "shipping-labels" : "images").delete(order.labelKey).catch(() => {});
     }
     await updateOrder(order.id, { trackingNumber: null, labelKey: null, shipmentId: null });
 

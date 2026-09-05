@@ -29,7 +29,7 @@ const COLUMNS = `id, name, origin, region, altitude, tasting_notes, bio, roast,
 function toProduct(row) {
   if (!row) return null;
   return {
-    id: row.id,
+    id: Number(row.id),
     name: row.name,
     origin: row.origin || "",
     region: row.region || "",
@@ -97,7 +97,7 @@ async function saveProducts(products) {
     await client.query("BEGIN");
     const ids = list.map((p) => p.id);
     await client.query(
-      ids.length ? "DELETE FROM products WHERE NOT (id = ANY($1::int[]))" : "DELETE FROM products",
+      ids.length ? "DELETE FROM products WHERE NOT (id = ANY($1::bigint[]))" : "DELETE FROM products",
       ids.length ? [ids] : []
     );
     for (const [i, p] of list.entries()) {

@@ -6,10 +6,10 @@ const { corsHeaders } = require("./lib/cors");
 function validateProducts(products) {
   if (!Array.isArray(products)) return "Body must be an array of products";
   for (const p of products) {
-    if (typeof p.id !== "number") return "Every product needs a numeric id";
+    if (!p || !Number.isSafeInteger(p.id) || p.id < 1) return "Every product needs a numeric id";
     if (typeof p.name !== "string" || !p.name.trim()) return "Every product needs a name";
-    if (typeof p.price !== "number" || p.price < 0) return "Every product needs a non-negative price";
-    if (typeof p.stock !== "number" || p.stock < 0) return "Every product needs a non-negative stock count";
+    if (!Number.isFinite(p.price) || p.price < 0 || p.price > 99999999) return "Every product needs a non-negative price";
+    if (!Number.isInteger(p.stock) || p.stock < 0 || p.stock > 2147483647) return "Every product needs a non-negative stock count";
   }
   return null;
 }

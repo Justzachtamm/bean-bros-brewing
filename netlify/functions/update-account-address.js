@@ -27,7 +27,7 @@ exports.handler = async (event) => {
     // AUTH: the email is taken from the verified session token, never from the
     // request body. Before this, anyone who knew a customer's address could
     // call this endpoint as them.
-    const session = requireSession(event, headers);
+    const session = await requireSession(event, headers);
     if (session.error) return session.error;
     const email = session.email;
 
@@ -52,7 +52,7 @@ exports.handler = async (event) => {
     }
 
     const stripe = Stripe(secretKey);
-    const customer = await findCustomerByEmail(stripe, email);
+    const customer = await findCustomerByEmail(stripe, email, session.user.stripeCustomerId);
     if (!customer) {
       // Nothing to sync yet — the account has no Stripe customer until their
       // first checkout. Not an error; the local profile save still succeeds.

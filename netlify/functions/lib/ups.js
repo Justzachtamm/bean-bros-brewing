@@ -57,11 +57,11 @@ async function getAccessToken() {
   return cachedToken;
 }
 
-function buildAddress({ name, address, city, state, zip, country = "US" }) {
+function buildAddress({ name, address, address2, city, state, zip, country = "US" }) {
   return {
     Name: name,
     Address: {
-      AddressLine: [address],
+      AddressLine: [address, address2].filter(Boolean),
       City: city,
       StateProvinceCode: state,
       PostalCode: zip,
@@ -224,7 +224,7 @@ async function createShipment({ shipFrom, shipTo, weightLbs, serviceCode, descri
   // Uncapped — the base64 label image alone can run past 100KB, and a
   // truncated log line is useless for recovering a shipment/tracking ID
   // after the fact (this is the whole point of logging it).
-  console.log(`UPS createShipment raw response: ${text}`);
+  // Carrier responses contain customer addresses and label data; do not log them.
 
   const data = JSON.parse(text);
   // Success responses are wrapped in ShipmentResponse (per UPS's
@@ -268,7 +268,7 @@ async function voidShipment({ shipmentId, trackingNumber }) {
   });
 
   const text = await res.text();
-  console.log(`UPS voidShipment raw response (shipmentId=${shipmentId}): ${text.slice(0, 2000)}`);
+
   const data = JSON.parse(text || "{}");
 
   if (!res.ok) {

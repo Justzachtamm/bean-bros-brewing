@@ -1,6 +1,7 @@
 const { connectLambda } = require("@netlify/blobs");
 const { corsHeaders } = require("./lib/cors");
 const A = require("./lib/accounts");
+const { consumeLimit, clientIp } = require("./lib/rate-limit");
 
 // Deliberately identical wording whether the address is unknown or the password
 // is wrong — anything else turns this endpoint into an account-existence oracle.
@@ -17,8 +18,9 @@ exports.handler = async (event) => {
   }
 
   try {
+    if (!await consumeLimit(`account-login:${clientIp(event)}`, 30, 900)) return { statusCode: 429, headers, body: JSON.stringify({ error: "Too many attempts. Try again in 15 minutes." }) };
     const { email, password } = JSON.parse(event.body || "{}");
-    if (typeof email !== "string" || typeof password !== "string") {
+    if (typeof email !== "string" || typeof password !== "string" || password.length > 200 || email.length > 254) {
       return { statusCode: 400, headers, body: JSON.stringify({ error: GENERIC }) };
     }
 
@@ -36,7 +38,7 @@ exports.handler = async (event) => {
     return {
       statusCode: 200,
       headers: { ...headers, "Content-Type": "application/json", "Cache-Control": "no-store" },
-      body: JSON.stringify({ ok: true, token: A.issueSession(user.email), user: A.publicUser(user) }),
+      body: JSON.stringify({ ok: true, token: A.issueSession(user), user: A.publicUser(user) }),
     };
   } catch (err) {
     console.error("Account login error:", err.message);

@@ -1,11 +1,9 @@
 const Stripe = require("stripe");
 const { connectLambda } = require("@netlify/blobs");
-const { corsHeaders, ALLOWED_ORIGINS } = require("./lib/cors");
+const { corsHeaders } = require("./lib/cors");
+const { isAllowedRedirect } = require("./lib/redirects");
+const { checkoutCustomer } = require("./lib/customer");
 const { requireSession } = require("./lib/accounts");
-
-function isAllowedRedirect(url) {
-  return typeof url === "string" && ALLOWED_ORIGINS.some((o) => url.startsWith(o));
-}
 
 exports.handler = async (event) => {
   connectLambda(event);
@@ -30,7 +28,7 @@ exports.handler = async (event) => {
     // AUTH: the email is taken from the verified session token, never from the
     // request body. Before this, anyone who knew a customer's address could
     // call this endpoint as them.
-    const session = requireSession(event, headers);
+    const session = await requireSession(event, headers);
     if (session.error) return session.error;
     const email = session.email;
 
@@ -40,14 +38,10 @@ exports.handler = async (event) => {
     }
 
     const stripe = Stripe(secretKey);
-    const customers = await stripe.customers.list({ email: email.toLowerCase().trim(), limit: 1 });
-    const customer = customers.data[0];
-    if (!customer) {
-      return { statusCode: 404, headers, body: JSON.stringify({ error: "No account found for that email" }) };
-    }
+    const customerId = await checkoutCustomer(stripe, session.user);
 
     const portalSession = await stripe.billingPortal.sessions.create({
-      customer: customer.id,
+      customer: customerId,
       return_url: returnUrl,
     });
 

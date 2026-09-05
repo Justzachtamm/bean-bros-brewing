@@ -13,7 +13,7 @@ exports.handler = async (event) => {
   }
 
   const key = event.queryStringParameters?.key;
-  if (!key) {
+  if (!key || !/^product-[A-Za-z0-9-]+\.(png|jpg|jpeg|webp|gif)$/.test(key)) {
     return { statusCode: 400, headers, body: JSON.stringify({ error: "Missing key" }) };
   }
 

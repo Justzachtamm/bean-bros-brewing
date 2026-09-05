@@ -18,7 +18,7 @@ exports.handler = async (event) => {
     // AUTH: the email is taken from the verified session token, never from the
     // request body. Before this, anyone who knew a customer's address could
     // call this endpoint as them.
-    const session = requireSession(event, headers);
+    const session = await requireSession(event, headers);
     if (session.error) return session.error;
     const email = session.email;
 
