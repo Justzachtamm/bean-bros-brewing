@@ -36,7 +36,7 @@ exports.handler = async (event) => {
         "Cache-Control": "public, max-age=60",
       },
       body: JSON.stringify({
-        freeShipThreshold: Number.isFinite(threshold) && threshold > 0 ? threshold : 40,
+        freeShipThreshold: Number.isFinite(threshold) && threshold > 0 ? threshold : 50,
       }),
     };
   } catch (err) {

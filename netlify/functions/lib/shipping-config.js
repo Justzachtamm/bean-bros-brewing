@@ -9,7 +9,7 @@ const DEFAULT_CONFIG = {
   shipFromCity: "",
   shipFromState: "NJ",
   shipFromZip: "",
-  freeShipThreshold: 40,
+  freeShipThreshold: 50,
   defaultWeightLbs: 2,
 };
 
