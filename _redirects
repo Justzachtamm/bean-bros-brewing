@@ -9,5 +9,7 @@
 /account /account.html 200
 /operations /operations.html 200
 
+/collections /collections/ 301
+
 # SPA fallback (must stay last)
 /*    /index.html   200

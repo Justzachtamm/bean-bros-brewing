@@ -34,4 +34,7 @@ for(const dir of ['assets/brand','assets/products']) {
  }
 }
 for(const file of staticFiles)copy(file);
+// Publish only the reviewed collection page and its required public images.
+for(const file of ['index.html','style.css','app.js','catalog.js'])copy('collections/'+file);
+for(const dir of ['assets','source/images'])fs.cpSync(path.join(root,'collections',dir),path.join(out,'collections',dir),{recursive:true});
 console.log('Built customer and admin pages into dist; server files excluded.');
