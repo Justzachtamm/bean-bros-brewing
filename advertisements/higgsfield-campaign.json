@@ -1,0 +1,143 @@
+{
+  "brand": "Bean Bros Brewing",
+  "product": "Bean Bros Blend",
+  "created": "2026-09-06",
+  "deliverables": [
+    "3 vertical images",
+    "10-second video",
+    "15-second video",
+    "60-second assembled video"
+  ],
+  "jobs": [
+    {
+      "index": 0,
+      "job_id": "d513c724-a8df-4b18-8258-145c3fdd7eb1",
+      "status": "completed",
+      "type": "image",
+      "model": "nano_banana_2",
+      "result_url": "https://d8j0ntlcm91z4.cloudfront.net/user_3Hj2Xsn9EDkG5jk33uPZ2SDGHqm/hf_20260906_205425_d513c724-a8df-4b18-8258-145c3fdd7eb1.png"
+    },
+    {
+      "index": 1,
+      "job_id": "04fea1ec-8077-4c29-9306-9e75827a53f6",
+      "status": "completed",
+      "type": "image",
+      "model": "nano_banana_2",
+      "result_url": "https://d8j0ntlcm91z4.cloudfront.net/user_3Hj2Xsn9EDkG5jk33uPZ2SDGHqm/hf_20260906_205425_04fea1ec-8077-4c29-9306-9e75827a53f6.png"
+    },
+    {
+      "index": 2,
+      "job_id": "4ad8395c-ef41-4d80-97fd-32b74524d718",
+      "status": "completed",
+      "type": "image",
+      "model": "nano_banana_2",
+      "result_url": "https://d8j0ntlcm91z4.cloudfront.net/user_3Hj2Xsn9EDkG5jk33uPZ2SDGHqm/hf_20260906_205425_4ad8395c-ef41-4d80-97fd-32b74524d718.png"
+    },
+    {
+      "index": 3,
+      "job_id": "bdd0cf8e-c19f-456d-8958-bf90789edda8",
+      "status": "in_progress",
+      "type": "image",
+      "model": "seedance_2_5"
+    },
+    {
+      "index": 4,
+      "job_id": "680c87d1-10ee-46ca-a1cb-8993516f8ab5",
+      "status": "queued",
+      "type": "image",
+      "model": "seedance_2_5"
+    },
+    {
+      "index": 5,
+      "job_id": "e0aaf9c4-0cf8-446f-b64c-89f2be09aea2",
+      "status": "queued",
+      "type": "image",
+      "model": "seedance_2_5"
+    },
+    {
+      "index": 6,
+      "job_id": "ed3e2773-d34b-43a8-8a29-d6f5c4116671",
+      "status": "queued",
+      "type": "image",
+      "model": "seedance_2_5"
+    }
+  ],
+  "videoRequests": [
+    {
+      "index": 3,
+      "params": {
+        "model": "seedance_2_5",
+        "prompt": "Create a polished vertical coffee product commercial. Use the reference as the EXACT physical product: matte black resealable coffee bag, cream illustrated label with green Bean Bros Blend lettering and printed mascot. Preserve logo, packaging proportions and label art consistently. Mascot never leaves the printed label. Palette matte black, cream, forest green and walnut. Warm 4500K directional window light, tactile photorealism, physically plausible liquid and grounded objects. Keep hero and action within central 75% width and middle 70% height. No overlay text, captions, people, hands, fabricated certifications, price claims or unrelated branding. No music or speech; generate natural synchronized coffee sounds only, no sudden audio cutoff. Ten-second standalone ad: 0-3s macro black coffee ribbon pouring from a cropped carafe into cream ceramic mug; 3-7s cut to bag next to steaming mug on walnut, gentle camera slide; 7-10s stable front-facing bag hero and mug, subtle steam, elegant end hold. Coffee pouring sound then quiet room ambience. Bag label sharp and unchanged.",
+        "count": 1,
+        "duration": 10,
+        "resolution": "1080p",
+        "aspect_ratio": "9:16",
+        "mode": "omni_reference",
+        "generate_audio": true,
+        "medias": [
+          {
+            "role": "image",
+            "value": "a3d2478d-7a78-47cf-bb6b-d4d6e1606287"
+          }
+        ]
+      }
+    },
+    {
+      "index": 4,
+      "params": {
+        "model": "seedance_2_5",
+        "prompt": "Create a polished vertical coffee product commercial. Use the reference as the EXACT physical product: matte black resealable coffee bag, cream illustrated label with green Bean Bros Blend lettering and printed mascot. Preserve logo, packaging proportions and label art consistently. Mascot never leaves the printed label. Palette matte black, cream, forest green and walnut. Warm 4500K directional window light, tactile photorealism, physically plausible liquid and grounded objects. Keep hero and action within central 75% width and middle 70% height. No overlay text, captions, people, hands, fabricated certifications, price claims or unrelated branding. No music or speech; generate natural synchronized coffee sounds only, no sudden audio cutoff. Fifteen-second standalone ad: 0-4s dramatic revealing light travels across the reference bag on travertine with forest-green background; 4-8s macro roasted beans rolling a short distance naturally on walnut; 8-12s cream mug with delicate steam next to intact reference bag; 12-15s slow push into front-facing hero composition and hold. Soft beans tapping and room ambience, premium restrained energy.",
+        "count": 1,
+        "duration": 15,
+        "resolution": "1080p",
+        "aspect_ratio": "9:16",
+        "mode": "omni_reference",
+        "generate_audio": true,
+        "medias": [
+          {
+            "role": "image",
+            "value": "a3d2478d-7a78-47cf-bb6b-d4d6e1606287"
+          }
+        ]
+      }
+    },
+    {
+      "index": 5,
+      "params": {
+        "model": "seedance_2_5",
+        "prompt": "Create a polished vertical coffee product commercial. Use the reference as the EXACT physical product: matte black resealable coffee bag, cream illustrated label with green Bean Bros Blend lettering and printed mascot. Preserve logo, packaging proportions and label art consistently. Mascot never leaves the printed label. Palette matte black, cream, forest green and walnut. Warm 4500K directional window light, tactile photorealism, physically plausible liquid and grounded objects. Keep hero and action within central 75% width and middle 70% height. No overlay text, captions, people, hands, fabricated certifications, price claims or unrelated branding. No music or speech; generate natural synchronized coffee sounds only, no sudden audio cutoff. First half of a sixty-second coffee ritual film, six distinct shots with clean hard cuts every five seconds. 0-5s vivid macro of roasted beans resting on walnut with shallow focus and camera glide. 5-10s reference bag standing front-facing beside cream mug in warm morning window light. 10-15s ceramic dripper holding paper filter and dry ground coffee, framed close, bag softly visible behind. 15-20s a cropped gooseneck kettle spout pours a physically plausible fine stream of hot water onto grounds, blooming coffee. 20-25s close-up dark brewed coffee dripping into glass server underneath dripper. 25-30s camera slowly widens to entire brewing setup and reference bag, brewing continuing. Natural beans, water and brewing audio only. No speech, no music. Ending is a transitional brewing shot, not a closing card.",
+        "count": 1,
+        "duration": 30,
+        "resolution": "1080p",
+        "aspect_ratio": "9:16",
+        "mode": "omni_reference",
+        "generate_audio": true,
+        "medias": [
+          {
+            "role": "image",
+            "value": "a3d2478d-7a78-47cf-bb6b-d4d6e1606287"
+          }
+        ]
+      }
+    },
+    {
+      "index": 6,
+      "params": {
+        "model": "seedance_2_5",
+        "prompt": "Create a polished vertical coffee product commercial. Use the reference as the EXACT physical product: matte black resealable coffee bag, cream illustrated label with green Bean Bros Blend lettering and printed mascot. Preserve logo, packaging proportions and label art consistently. Mascot never leaves the printed label. Palette matte black, cream, forest green and walnut. Warm 4500K directional window light, tactile photorealism, physically plausible liquid and grounded objects. Keep hero and action within central 75% width and middle 70% height. No overlay text, captions, people, hands, fabricated certifications, price claims or unrelated branding. No music or speech; generate natural synchronized coffee sounds only, no sudden audio cutoff. Second half of a sixty-second coffee ritual film, same walnut table, cream mug, warm morning window light. Six distinct shots with clean hard cuts every five seconds. 0-5s macro final drops of dark brewed coffee from ceramic dripper into glass server. 5-10s cropped glass server pouring brewed coffee into cream mug, liquid remains inside cup. 10-15s coffee surface ripples slowly settle, beautiful steam rim light. 15-20s medium shot steaming cream mug beside exact reference bag with legible main logo and unchanged illustration. 20-25s wider sunlit coffee-table still life, linen napkin, bag, mug and few roasted beans, gentle camera slide. 25-30s front-facing intact bag and mug as hero, very slow push and hold final two seconds, satisfying calm finish. Natural pouring, dripping and quiet room tone only. No speech, no music.",
+        "count": 1,
+        "duration": 30,
+        "resolution": "1080p",
+        "aspect_ratio": "9:16",
+        "mode": "omni_reference",
+        "generate_audio": true,
+        "medias": [
+          {
+            "role": "image",
+            "value": "a3d2478d-7a78-47cf-bb6b-d4d6e1606287"
+          }
+        ]
+      }
+    }
+  ]
+}
