@@ -1,0 +1,253 @@
+{
+  "jobs": [
+    {
+      "index": 0,
+      "job_id": "77233137-fa3d-40a4-982d-433608f79dd0",
+      "status": "completed",
+      "type": "image",
+      "model": "nano_banana_2",
+      "result_url": "https://d8j0ntlcm91z4.cloudfront.net/user_3Hj2Xsn9EDkG5jk33uPZ2SDGHqm/hf_20260906_211854_77233137-fa3d-40a4-982d-433608f79dd0.png"
+    },
+    {
+      "index": 1,
+      "job_id": "f4dd8e66-7aeb-4639-89ca-fc2ce5ac5409",
+      "status": "completed",
+      "type": "image",
+      "model": "nano_banana_2",
+      "result_url": "https://d8j0ntlcm91z4.cloudfront.net/user_3Hj2Xsn9EDkG5jk33uPZ2SDGHqm/hf_20260906_211854_f4dd8e66-7aeb-4639-89ca-fc2ce5ac5409.png"
+    },
+    {
+      "index": 3,
+      "job_id": "c29fc936-2fa0-4442-ad71-feb32b3adb73",
+      "status": "pending",
+      "adjustments": {
+        "medias[0].role": {
+          "requested": "image",
+          "used": "image_references",
+          "reason": "Seedance 2.5 backend expects schema-key media roles"
+        },
+        "medias[1].role": {
+          "requested": "image",
+          "used": "image_references",
+          "reason": "Seedance 2.5 backend expects schema-key media roles"
+        },
+        "medias[2].role": {
+          "requested": "image",
+          "used": "image_references",
+          "reason": "Seedance 2.5 backend expects schema-key media roles"
+        }
+      }
+    },
+    {
+      "index": 4,
+      "job_id": "f0587f11-8e4f-4745-90f3-62848a2b1f1f",
+      "status": "pending",
+      "adjustments": {
+        "medias[0].role": {
+          "requested": "image",
+          "used": "image_references",
+          "reason": "Seedance 2.5 backend expects schema-key media roles"
+        },
+        "medias[1].role": {
+          "requested": "image",
+          "used": "image_references",
+          "reason": "Seedance 2.5 backend expects schema-key media roles"
+        },
+        "medias[2].role": {
+          "requested": "image",
+          "used": "image_references",
+          "reason": "Seedance 2.5 backend expects schema-key media roles"
+        }
+      }
+    },
+    {
+      "index": 5,
+      "job_id": "b887eee1-2922-4a01-abc6-9dbbbbbc8e14",
+      "status": "pending",
+      "adjustments": {
+        "medias[0].role": {
+          "requested": "image",
+          "used": "image_references",
+          "reason": "Seedance 2.5 backend expects schema-key media roles"
+        },
+        "medias[1].role": {
+          "requested": "image",
+          "used": "image_references",
+          "reason": "Seedance 2.5 backend expects schema-key media roles"
+        },
+        "medias[2].role": {
+          "requested": "image",
+          "used": "image_references",
+          "reason": "Seedance 2.5 backend expects schema-key media roles"
+        }
+      }
+    },
+    {
+      "index": 6,
+      "job_id": "e55d5c0e-7cb2-4868-aa0a-7ebbe203712b",
+      "status": "pending",
+      "adjustments": {
+        "medias[0].role": {
+          "requested": "image",
+          "used": "image_references",
+          "reason": "Seedance 2.5 backend expects schema-key media roles"
+        },
+        "medias[1].role": {
+          "requested": "image",
+          "used": "image_references",
+          "reason": "Seedance 2.5 backend expects schema-key media roles"
+        },
+        "medias[2].role": {
+          "requested": "image",
+          "used": "image_references",
+          "reason": "Seedance 2.5 backend expects schema-key media roles"
+        }
+      }
+    }
+  ],
+  "products": [
+    {
+      "slug": "mexican-chiapas",
+      "name": "MEXICAN CHIAPAS",
+      "url": "https://beanbrosbrewingco.com/.netlify/functions/image?key=product-6-1788370717892-7f98ce78.webp",
+      "hook": "DARK ROAST. DEEP SWEETNESS.",
+      "notes": "Dark chocolate · Brown sugar · Roasted nuts",
+      "origin": "CHIAPAS, MEXICO",
+      "color": "terracotta red",
+      "scene": "Dramatic coffee splash frozen behind the bag, scattered beans and a black branded mug in foreground; terracotta textured background and warm sunlight.",
+      "detail": "Dark roast • Full-bodied • Smoky finish"
+    },
+    {
+      "slug": "legender-brazil",
+      "name": "LEGENDER BRAZIL",
+      "url": "https://beanbrosbrewingco.com/.netlify/functions/image?key=product-8-1788370759259-6c07be8a.webp",
+      "hook": "YOUR CHOCOLATE-NUT COFFEE.",
+      "notes": "Milk chocolate · Caramel · Hazelnut",
+      "origin": "MINAS GERAIS, BRAZIL",
+      "color": "forest green and golden yellow",
+      "scene": "Low diagonal hero bag and black branded mug, sculptural swoosh of flowing coffee behind both, walnut and green textured studio environment.",
+      "detail": "Natural process • Smooth, nutty cup"
+    }
+  ],
+  "scripts": [
+    {
+      "short": "Love a bold cup? Meet Mexican Chiapas. Dark chocolate, brown sugar, roasted nuts, and a smoky finish. Dark roasted, full-bodied, and ready for your Bean Bros ritual.",
+      "long": "Here is what sets this coffee apart. Chiapas is a highland growing region in southern Mexico. Our Mexican Chiapas is dark roasted for a full-bodied cup with deep sweetness. Those chocolate and nut descriptions are tasting notes, not a recipe. Start by tasting your coffee black, then try your usual splash of milk. Discover Mexican Chiapas from Bean Bros."
+    },
+    {
+      "short": "Chocolate and nut lovers, this is your coffee. Legender Brazil brings milk chocolate, caramel, hazelnut, and brown sugar notes together in one smooth cup. Find your favorite at Bean Bros.",
+      "long": "Legender comes from Brazil's Minas Gerais coffee region. This coffee is naturally processed, meaning the coffee fruit dries around the seed before it is removed. Our cup profile brings milk chocolate, caramel, hazelnut, and brown sugar notes. Tasting notes describe what the coffee reminds you of. Try it black first, then add milk to explore the difference. Meet Legender Brazil."
+    }
+  ],
+  "videoRequests": [
+    {
+      "index": 3,
+      "params": {
+        "model": "seedance_2_5",
+        "mode": "omni_reference",
+        "aspect_ratio": "9:16",
+        "resolution": "1080p",
+        "duration": 15,
+        "generate_audio": true,
+        "count": 1,
+        "medias": [
+          {
+            "role": "image",
+            "value": "https://beanbrosbrewingco.com/.netlify/functions/image?key=product-6-1788370717892-7f98ce78.webp"
+          },
+          {
+            "role": "image",
+            "value": "77233137-fa3d-40a4-982d-433608f79dd0"
+          },
+          {
+            "role": "image",
+            "value": "https://beanbrosbrewingco.com/logo-white.png"
+          }
+        ],
+        "prompt": "Create an informative, energetic premium coffee commercial for MEXICAN CHIAPAS. Reference 1 is exact product packaging. Reference 2 defines custom matte-black ceramic mug with Bean Bros logo and color palette ONLY, not a static poster to animate; remove all poster typography from the filmed scene. Reference 3 is exact mug logo. Hero bag branding and mug logo must remain consistent and readable. The logo is printed directly in warm white on the front of the mug, full monogram and BEAN BROS BREWING. Mug faces the lens whenever visible. No unbranded mugs.\nVISUAL DIRECTION: Fast purposeful cuts every 2-3 seconds, striking opening macro, match cuts, close-up beans, dramatic pour, bag hero, branded mug. Tactile photorealism, terracotta red, black and cream, 4500K directional light, crisp editorial lensing. No humans or talking heads. Never animate the printed mascot or change bag text. Avoid static slideshow, slow empty pan, warped logos, random text, floating bag.\nHook sequence: open with roasted beans cascading in macro, match cut into black coffee flowing into branded mug, product hero, a fast rack focus from mug logo to bag, finish on both. No added ingredients or food falling into coffee.\nAUDIO: Warm confident upbeat American English female off-screen narrator, conversational natural pacing. Speak exactly this script, every word clearly, no extra claims: \"Love a bold cup? Meet Mexican Chiapas. Dark chocolate, brown sugar, roasted nuts, and a smoky finish. Dark roasted, full-bodied, and ready for your Bean Bros ritual.\" \nNarration dominates; crisp light coffee sound effects underneath, no music and no additional speech. Finish narration at least one second before end. Do not generate subtitles, headings, graphics or overlays; these are added in editing. Compose essential product within middle 70% of vertical frame leaving scene continuity for readable overlays."
+      }
+    },
+    {
+      "index": 4,
+      "params": {
+        "model": "seedance_2_5",
+        "mode": "omni_reference",
+        "aspect_ratio": "9:16",
+        "resolution": "1080p",
+        "duration": 30,
+        "generate_audio": true,
+        "count": 1,
+        "medias": [
+          {
+            "role": "image",
+            "value": "https://beanbrosbrewingco.com/.netlify/functions/image?key=product-6-1788370717892-7f98ce78.webp"
+          },
+          {
+            "role": "image",
+            "value": "77233137-fa3d-40a4-982d-433608f79dd0"
+          },
+          {
+            "role": "image",
+            "value": "https://beanbrosbrewingco.com/logo-white.png"
+          }
+        ],
+        "prompt": "Create an informative, energetic premium coffee commercial for MEXICAN CHIAPAS. Reference 1 is exact product packaging. Reference 2 defines custom matte-black ceramic mug with Bean Bros logo and color palette ONLY, not a static poster to animate; remove all poster typography from the filmed scene. Reference 3 is exact mug logo. Hero bag branding and mug logo must remain consistent and readable. The logo is printed directly in warm white on the front of the mug, full monogram and BEAN BROS BREWING. Mug faces the lens whenever visible. No unbranded mugs.\nVISUAL DIRECTION: Fast purposeful cuts every 2-3 seconds, striking opening macro, match cuts, close-up beans, dramatic pour, bag hero, branded mug. Tactile photorealism, terracotta red, black and cream, 4500K directional light, crisp editorial lensing. No humans or talking heads. Never animate the printed mascot or change bag text. Avoid static slideshow, slow empty pan, warped logos, random text, floating bag.\nEducational sequence: cut between coffee cherries as generic illustrative macro, beans drying as generic process illustration (Brazil only; for Mexico use roasted bean macro instead), brewing close-ups and a real branded mug next to the bag. End on product and mug with a strong satisfying hold. Do not portray a specific estate or farm or farmers.\nAUDIO: Warm confident upbeat American English female off-screen narrator, conversational natural pacing. Speak exactly this script, every word clearly, no extra claims: \"Here is what sets this coffee apart. Chiapas is a highland growing region in southern Mexico. Our Mexican Chiapas is dark roasted for a full-bodied cup with deep sweetness. Those chocolate and nut descriptions are tasting notes, not a recipe. Start by tasting your coffee black, then try your usual splash of milk. Discover Mexican Chiapas from Bean Bros.\" \nNarration dominates; crisp light coffee sound effects underneath, no music and no additional speech. Finish narration at least one second before end. Do not generate subtitles, headings, graphics or overlays; these are added in editing. Compose essential product within middle 70% of vertical frame leaving scene continuity for readable overlays."
+      }
+    },
+    {
+      "index": 5,
+      "params": {
+        "model": "seedance_2_5",
+        "mode": "omni_reference",
+        "aspect_ratio": "9:16",
+        "resolution": "1080p",
+        "duration": 15,
+        "generate_audio": true,
+        "count": 1,
+        "medias": [
+          {
+            "role": "image",
+            "value": "https://beanbrosbrewingco.com/.netlify/functions/image?key=product-8-1788370759259-6c07be8a.webp"
+          },
+          {
+            "role": "image",
+            "value": "f4dd8e66-7aeb-4639-89ca-fc2ce5ac5409"
+          },
+          {
+            "role": "image",
+            "value": "https://beanbrosbrewingco.com/logo-white.png"
+          }
+        ],
+        "prompt": "Create an informative, energetic premium coffee commercial for LEGENDER BRAZIL. Reference 1 is exact product packaging. Reference 2 defines custom matte-black ceramic mug with Bean Bros logo and color palette ONLY, not a static poster to animate; remove all poster typography from the filmed scene. Reference 3 is exact mug logo. Hero bag branding and mug logo must remain consistent and readable. The logo is printed directly in warm white on the front of the mug, full monogram and BEAN BROS BREWING. Mug faces the lens whenever visible. No unbranded mugs.\nVISUAL DIRECTION: Fast purposeful cuts every 2-3 seconds, striking opening macro, match cuts, close-up beans, dramatic pour, bag hero, branded mug. Tactile photorealism, forest green and golden yellow, black and cream, 4500K directional light, crisp editorial lensing. No humans or talking heads. Never animate the printed mascot or change bag text. Avoid static slideshow, slow empty pan, warped logos, random text, floating bag.\nHook sequence: open with roasted beans cascading in macro, match cut into black coffee flowing into branded mug, product hero, a fast rack focus from mug logo to bag, finish on both. No added ingredients or food falling into coffee.\nAUDIO: Warm confident upbeat American English female off-screen narrator, conversational natural pacing. Speak exactly this script, every word clearly, no extra claims: \"Chocolate and nut lovers, this is your coffee. Legender Brazil brings milk chocolate, caramel, hazelnut, and brown sugar notes together in one smooth cup. Find your favorite at Bean Bros.\" \nNarration dominates; crisp light coffee sound effects underneath, no music and no additional speech. Finish narration at least one second before end. Do not generate subtitles, headings, graphics or overlays; these are added in editing. Compose essential product within middle 70% of vertical frame leaving scene continuity for readable overlays."
+      }
+    },
+    {
+      "index": 6,
+      "params": {
+        "model": "seedance_2_5",
+        "mode": "omni_reference",
+        "aspect_ratio": "9:16",
+        "resolution": "1080p",
+        "duration": 30,
+        "generate_audio": true,
+        "count": 1,
+        "medias": [
+          {
+            "role": "image",
+            "value": "https://beanbrosbrewingco.com/.netlify/functions/image?key=product-8-1788370759259-6c07be8a.webp"
+          },
+          {
+            "role": "image",
+            "value": "f4dd8e66-7aeb-4639-89ca-fc2ce5ac5409"
+          },
+          {
+            "role": "image",
+            "value": "https://beanbrosbrewingco.com/logo-white.png"
+          }
+        ],
+        "prompt": "Create an informative, energetic premium coffee commercial for LEGENDER BRAZIL. Reference 1 is exact product packaging. Reference 2 defines custom matte-black ceramic mug with Bean Bros logo and color palette ONLY, not a static poster to animate; remove all poster typography from the filmed scene. Reference 3 is exact mug logo. Hero bag branding and mug logo must remain consistent and readable. The logo is printed directly in warm white on the front of the mug, full monogram and BEAN BROS BREWING. Mug faces the lens whenever visible. No unbranded mugs.\nVISUAL DIRECTION: Fast purposeful cuts every 2-3 seconds, striking opening macro, match cuts, close-up beans, dramatic pour, bag hero, branded mug. Tactile photorealism, forest green and golden yellow, black and cream, 4500K directional light, crisp editorial lensing. No humans or talking heads. Never animate the printed mascot or change bag text. Avoid static slideshow, slow empty pan, warped logos, random text, floating bag.\nEducational sequence: cut between coffee cherries as generic illustrative macro, beans drying as generic process illustration (Brazil only; for Mexico use roasted bean macro instead), brewing close-ups and a real branded mug next to the bag. End on product and mug with a strong satisfying hold. Do not portray a specific estate or farm or farmers.\nAUDIO: Warm confident upbeat American English female off-screen narrator, conversational natural pacing. Speak exactly this script, every word clearly, no extra claims: \"Legender comes from Brazil's Minas Gerais coffee region. This coffee is naturally processed, meaning the coffee fruit dries around the seed before it is removed. Our cup profile brings milk chocolate, caramel, hazelnut, and brown sugar notes. Tasting notes describe what the coffee reminds you of. Try it black first, then add milk to explore the difference. Meet Legender Brazil.\" \nNarration dominates; crisp light coffee sound effects underneath, no music and no additional speech. Finish narration at least one second before end. Do not generate subtitles, headings, graphics or overlays; these are added in editing. Compose essential product within middle 70% of vertical frame leaving scene continuity for readable overlays."
+      }
+    }
+  ],
+  "nicaragua": "Awaiting clarification"
+}
