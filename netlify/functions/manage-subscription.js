@@ -104,7 +104,7 @@ exports.handler = async (event) => {
         for (const current of subscription.items.data) {
           const productId = typeof current.price.product === "string" ? current.price.product : current.price.product.id;
           const price = await stripe.prices.create({ currency: current.price.currency,
-            unit_amount: current.price.unit_amount, recurring, product: productId });
+            unit_amount: current.price.unit_amount, tax_behavior: current.price.tax_behavior || "exclusive", recurring, product: productId });
           replacements.push({ id: current.id, price: price.id, quantity: current.quantity });
         }
         await stripe.subscriptions.update(subscriptionId, {

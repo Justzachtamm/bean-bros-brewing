@@ -39,6 +39,12 @@ async function buildSnapshot() {
     snapshot.tables.admin_workspace_records = rows;
     snapshot.counts.admin_workspace_records = rows.length;
   }
+  const business = await db.query("SELECT to_regclass('public.business_records') AS table_name");
+  if (business[0]?.table_name) {
+    const rows = await db.query('SELECT * FROM business_records ORDER BY created_at');
+    snapshot.tables.business_records = rows;
+    snapshot.counts.business_records = rows.length;
+  }
   return snapshot;
 }
 

@@ -1,3 +1,5 @@
+const { snapshot } = require("./lib/accounting");
+const businessRecords = require("./lib/business-records");
 const Stripe = require("stripe");
 const { connectLambda } = require("@netlify/blobs");
 const { recordPaidOrder } = require("./lib/orders");
@@ -39,12 +41,12 @@ function toShippingAddress(shippingDetails) {
   };
 }
 
-async function recordOrder(stripe, { id, sourceId, customerId, customerName, customerEmail, items, total, shippingAddress, shippingService }) {
+async function recordOrder(stripe, { id, sourceId, customerId, customerName, customerEmail, items, total, shippingAddress, shippingService, accounting }) {
   if (!shippingAddress?.address || !shippingAddress.zip) throw new Error("Shipping address is missing; retry after Checkout is available");
   return recordPaidOrder({ id, sessionId: sourceId, customerId: customerId || "",
-    date: new Date().toISOString(), customerName: customerName || "Unknown",
+    date: accounting?.paidAt || new Date().toISOString(), customerName: customerName || "Unknown",
     customerEmail: customerEmail || "", items, total, status: "Paid", shippingAddress,
-    extra: { shippingService }, trackingNumber: null, labelKey: null });
+    extra: { shippingService, accounting }, trackingNumber: null, labelKey: null });
 }
 
 exports.handler = async (event) => {
@@ -83,7 +85,9 @@ exports.handler = async (event) => {
           limit: 100,
           expand: ["data.price.product"],
         });
+        if (lineItems.has_more) throw new Error("Checkout has too many lines to record safely");
         await recordOrder(stripe, {
+          accounting: snapshot(session, stripeEvent, lineItems.data),
           id: "BB-" + session.id.slice(-8).toUpperCase(),
           sourceId: session.id,
           customerId: typeof session.customer === "string" ? session.customer : session.customer?.id,
@@ -112,6 +116,11 @@ exports.handler = async (event) => {
       }
     }
 
+    if (["refund.created", "refund.updated", "refund.failed"].includes(stripeEvent.type)) {
+      const r = await stripe.refunds.retrieve(stripeEvent.data.object.id);
+      await businessRecords.save("refund", r.id, { amount: r.amount, currency: r.currency, status: r.status, livemode: r.livemode, paymentIntent: typeof r.payment_intent === "string" ? r.payment_intent : r.payment_intent?.id, date: new Date(r.created * 1000).toISOString(), taxAdjustment: null });
+    }
+
     if (stripeEvent.type === "invoice.paid") {
       const invoiceStub = stripeEvent.data.object;
       // Re-fetch with expansion — webhook payloads aren't expandable in place.
@@ -138,6 +147,7 @@ exports.handler = async (event) => {
       }
       if (invoice.lines.has_more) throw new Error("Invoice has too many lines to fulfill safely");
       await recordOrder(stripe, {
+        accounting: snapshot(invoice, stripeEvent, invoice.lines.data, true),
         id: "BB-" + invoice.id.slice(-8).toUpperCase(),
         sourceId: invoice.id,
         customerId: typeof customer === "string" ? customer : customer?.id,

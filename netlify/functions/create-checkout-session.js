@@ -10,6 +10,9 @@ const { getShippingConfig } = require("./lib/shipping-config");
 const { intervalForFrequency, normalizeFrequency, isSelectableFrequency } = require("./lib/subscriptions");
 const { getPackageDetails, getShippingOptions, FLAT_GROUND_RATE_CENTS, REFERENCE_SHIP_TO } = require("./lib/shipping-rates");
 
+const { taxCode } = require("./lib/accounting");
+const businessRecords = require("./lib/business-records");
+
 const SUBSCRIBE_DISCOUNT = 0.1;
 
 exports.handler = async (event) => {
@@ -46,6 +49,9 @@ exports.handler = async (event) => {
     const account = needsAccount ? await requireSession(event, baseHeaders) : null;
     if (account?.error) return account.error;
     const items_ = [];
+    const taxEnabled = process.env.STRIPE_TAX_ENABLED === "true";
+    if (/^(sk|rk)_live_/.test(secretKey) && !taxEnabled) return { statusCode: 503, headers: baseHeaders, body: JSON.stringify({ error: "Checkout is awaiting tax setup. Please contact the store." }) };
+    const profiles = taxEnabled ? await businessRecords.list("tax_profile") : [];
     const counts = new Map();
     const grindLabels = { "whole-bean": "Whole Bean", espresso: "Espresso", drip: "Drip", "pour-over": "Pour Over", "french-press": "French Press", "cold-brew": "Cold Brew" };
     for (const item of items) {
@@ -83,6 +89,7 @@ exports.handler = async (event) => {
       if (!grindLabel) throw new Error("Select a valid grind.");
       items_.push({
         productId: product.id,
+        category: profiles.find(p => p.id === String(product.id))?.body.category || product.category || "coffee",
         name: product.name,
         grindLabel,
         frequencyLabel: String(item.frequencyLabel || "").slice(0, 40),
@@ -94,13 +101,23 @@ exports.handler = async (event) => {
     }
 
     const stripe = Stripe(secretKey);
+    if (taxEnabled) {
+      const settings = await stripe.tax.settings.retrieve();
+      let newJerseyActive = false;
+      for await (const registration of stripe.tax.registrations.list({status:"active",limit:100})) {
+        if (registration.country === "US" && registration.country_options?.us?.state === "NJ") newJerseyActive = true;
+      }
+      if (settings.status !== "active" || !newJerseyActive) return { statusCode: 503, headers: baseHeaders, body: JSON.stringify({ error: "Checkout is awaiting tax setup. Please contact the store." }) };
+    }
     // grind/frequency go in product_data.metadata (not just the free-text description)
     // so the webhook can reliably read them back later via price.product.metadata,
     // instead of parsing description strings.
     const itemMetadata = (item) => ({
       grind: item.grindLabel,
       product_id: String(item.productId),
-      kind: "coffee",
+      kind: item.category,
+      category: item.category,
+      ...(taxEnabled ? { tax_code: taxCode(item.category) } : {}),
       subscription: String(item.isSubscription),
       // Stripe metadata values must be strings — one-time items have no cadence.
       frequency: item.frequency || "",
@@ -108,8 +125,10 @@ exports.handler = async (event) => {
     const line_items = items_.map((item) => ({
       price_data: {
         currency: "usd",
+        ...(taxEnabled ? { tax_behavior: "exclusive" } : {}),
         product_data: {
           name: item.name,
+          ...(taxEnabled ? { tax_code: taxCode(item.category) } : {}),
           description: `${item.grindLabel}${item.isSubscription ? ` · ${item.frequencyLabel}` : ""}`,
           metadata: itemMetadata(item),
         },
@@ -176,7 +195,8 @@ exports.handler = async (event) => {
         line_items.push({
           price_data: {
             currency: "usd",
-            product_data: { name: "Shipping", metadata: { kind: "shipping", service_code: "03" } },
+        ...(taxEnabled ? { tax_behavior: "exclusive" } : {}),
+            product_data: { name: "Shipping", ...(taxEnabled ? { tax_code: "txcd_92010001" } : {}), metadata: { kind: "shipping", service_code: "03" } },
             unit_amount: FLAT_GROUND_RATE_CENTS,
             recurring: intervalForFrequency(items_[0].frequency),
           },
@@ -189,8 +209,10 @@ exports.handler = async (event) => {
       sessionLineItems = items_.map((item) => ({
         price_data: {
           currency: "usd",
+        ...(taxEnabled ? { tax_behavior: "exclusive" } : {}),
           product_data: {
             name: item.name,
+          ...(taxEnabled ? { tax_code: taxCode(item.category) } : {}),
             description: item.grindLabel,
             metadata: itemMetadata(item),
           },
@@ -215,6 +237,7 @@ exports.handler = async (event) => {
       shipping_options = options.map((o) => ({
         shipping_rate_data: {
           type: "fixed_amount",
+          ...(taxEnabled ? { tax_behavior: "exclusive", tax_code: "txcd_92010001" } : {}),
           fixed_amount: { amount: o.amountCents, currency: "usd" },
           display_name: o.displayName,
           metadata: { service_code: o.serviceCode },
@@ -229,6 +252,7 @@ exports.handler = async (event) => {
     const receiptToken = crypto.randomBytes(32).toString("hex");
     const sessionConfig = {
       mode,
+      ...(taxEnabled ? { automatic_tax: { enabled: true } } : {}),
       metadata: { receipt_token_hash: crypto.createHash("sha256").update(receiptToken).digest("hex"), fulfillment_version: "2" },
       line_items: sessionLineItems,
       success_url: checkoutSuccessUrl(successUrl),
@@ -260,6 +284,7 @@ exports.handler = async (event) => {
     if (account) {
       sessionConfig.customer = await checkoutCustomer(stripe, account.user);
       delete sessionConfig.customer_creation;
+      if (taxEnabled) sessionConfig.customer_update = { address: "auto", shipping: "auto" };
       sessionConfig.client_reference_id = account.user.id;
     }
     if (mode === "subscription") {
