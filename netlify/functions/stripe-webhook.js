@@ -43,10 +43,12 @@ function toShippingAddress(shippingDetails) {
 
 async function recordOrder(stripe, { id, sourceId, customerId, customerName, customerEmail, items, total, shippingAddress, shippingService, accounting }) {
   if (!shippingAddress?.address || !shippingAddress.zip) throw new Error("Shipping address is missing; retry after Checkout is available");
-  return recordPaidOrder({ id, sessionId: sourceId, customerId: customerId || "",
+  const recorded=await recordPaidOrder({ id, sessionId: sourceId, customerId: customerId || "",
     date: accounting?.paidAt || new Date().toISOString(), customerName: customerName || "Unknown",
     customerEmail: customerEmail || "", items, total, status: "Paid", shippingAddress,
     extra: { shippingService, accounting }, trackingNumber: null, labelKey: null });
+  if(accounting?.livemode===true&&customerEmail){const care=require('./lib/customer-care');await care.queue('order:'+id,customerEmail,care.message('Your Bean Bros order is confirmed',`Thank you for your order ${id}.\n${items.filter(i=>!i.isShipping).map(i=>i.quantity+' × '+i.name).join('\n')}\nPaid total: $${Number(total).toFixed(2)}. We’ll email you when your package ships.`));}
+  return recorded;
 }
 
 exports.handler = async (event) => {
@@ -121,6 +123,13 @@ exports.handler = async (event) => {
       await businessRecords.save("refund", r.id, { amount: r.amount, currency: r.currency, status: r.status, livemode: r.livemode, paymentIntent: typeof r.payment_intent === "string" ? r.payment_intent : r.payment_intent?.id, date: new Date(r.created * 1000).toISOString(), taxAdjustment: null });
     }
 
+    if(stripeEvent.livemode===true&&stripeEvent.type==='invoice.payment_failed'){
+      const invoice=await stripe.invoices.retrieve(stripeEvent.data.object.id,{expand:['customer']});const customer=invoice.customer;
+      if(customer?.email){const care=require('./lib/customer-care');await care.queue('payment-failed:'+invoice.id+':'+invoice.attempt_count,customer.email,care.message('Your Bean Bros payment needs attention','We could not collect the latest subscription payment. Update your payment method in your account. No payment details are requested by email.'));}
+    }
+    if(stripeEvent.livemode===true&&['refund.created','refund.updated'].includes(stripeEvent.type)){
+      const refund=await stripe.refunds.retrieve(stripeEvent.data.object.id);if(refund.status==='succeeded'&&refund.charge){const charge=await stripe.charges.retrieve(typeof refund.charge==='string'?refund.charge:refund.charge.id);const to=charge.billing_details?.email;if(to){const care=require('./lib/customer-care');await care.queue('refund:'+refund.id,to,care.message('Your Bean Bros refund was processed',`We issued a refund of $${(refund.amount/100).toFixed(2)} to your original payment method. Your bank determines when it appears on your statement.`));}}
+    }
     if (stripeEvent.type === "invoice.paid") {
       const invoiceStub = stripeEvent.data.object;
       // Re-fetch with expansion — webhook payloads aren't expandable in place.

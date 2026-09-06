@@ -45,6 +45,7 @@ async function buildSnapshot() {
     snapshot.tables.business_records = rows;
     snapshot.counts.business_records = rows.length;
   }
+  for(const name of ['product_reviews','customer_messages','customer_care_state']){const exists=await db.one('SELECT to_regclass($1) AS name',['public.'+name]);if(exists?.name){const rows=await db.query('SELECT * FROM '+name);snapshot.tables[name]=rows;snapshot.counts[name]=rows.length;}}
   return snapshot;
 }
 

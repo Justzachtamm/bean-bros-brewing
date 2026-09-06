@@ -10,7 +10,7 @@ const https = require("https");
 // against the opted-in list, never through here.
 //
 // Requires BREVO_API_KEY. If it is missing, every send becomes a logged no-op
-// rather than an exception: a mail outage must never take down checkout or the
+// rather than an exception; the customer-care outbox records failures for retry. A mail outage must never take down checkout or the
 // Stripe webhook, because a webhook that 500s gets retried and a retried
 // checkout is a far worse problem than a missing email.
 
@@ -109,7 +109,7 @@ ${esc(POSTAL_ADDRESS)}<br>
 function subscriptionAcknowledgment({ name, items, amount, frequencyLabel, portalUrl }) {
   const lines = (items || []).map((i) => `${i.quantity || 1} × ${i.name}${i.grind ? ` (${i.grind})` : ""}`);
   const listHtml = lines.map((l) => `<li style="margin-bottom:4px;">${esc(l)}</li>`).join("");
-  const cancel = portalUrl || "https://beanbrosbrewingco.com/#account";
+  const cancel = portalUrl || "https://beanbrosbrewingco.com/account.html";
 
   const html = shell(`
 <p style="margin:0 0 14px;">${name ? `Hi ${esc(name)},` : "Hi,"}</p>
@@ -117,7 +117,7 @@ function subscriptionAcknowledgment({ name, items, amount, frequencyLabel, porta
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#faf8f6;border-radius:8px;padding:16px;margin-bottom:16px;">
 <tr><td style="font-size:14px;line-height:1.7;">
 <strong>What you get:</strong><ul style="margin:6px 0 12px;padding-left:20px;">${listHtml}</ul>
-<strong>Amount:</strong> ${esc(money(amount))} per delivery<br>
+<strong>Amount:</strong> ${esc(money(amount))} per delivery, before applicable tax and discounts<br>
 <strong>How often:</strong> ${esc(frequencyLabel)}<br>
 <strong>Renews:</strong> automatically, each period, until you cancel
 </td></tr></table>
@@ -135,7 +135,7 @@ Thanks for subscribing. Here's exactly what you signed up for:
 
 ${lines.map((l) => `  - ${l}`).join("\n")}
 
-Amount:     ${money(amount)} per delivery
+Amount:     ${money(amount)} per delivery, before applicable tax and discounts
 How often:  ${frequencyLabel}
 Renews:     automatically, each period, until you cancel
 
@@ -158,7 +158,7 @@ ${POSTAL_ADDRESS}`;
 // ---------------------------------------------------------------------------
 function renewalReminder({ name, items, amount, frequencyLabel, portalUrl }) {
   const lines = (items || []).map((i) => `${i.quantity || 1} × ${i.name}`);
-  const cancel = portalUrl || "https://beanbrosbrewingco.com/#account";
+  const cancel = portalUrl || "https://beanbrosbrewingco.com/account.html";
   const html = shell(`
 <p style="margin:0 0 14px;">${name ? `Hi ${esc(name)},` : "Hi,"}</p>
 <p style="margin:0 0 14px;">A quick, required check-in about your Bean Bros subscription — it's still
@@ -166,7 +166,7 @@ running, and we'd rather you hear that from us than from a bank statement.</p>
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#faf8f6;border-radius:8px;padding:16px;margin-bottom:16px;">
 <tr><td style="font-size:14px;line-height:1.7;">
 <strong>Subscription:</strong> ${esc(lines.join(", ") || "Coffee subscription")}<br>
-<strong>Amount:</strong> ${esc(money(amount))} per delivery<br>
+<strong>Amount:</strong> ${esc(money(amount))} per delivery, before applicable tax and discounts<br>
 <strong>How often:</strong> ${esc(frequencyLabel)}<br>
 <strong>Renews:</strong> automatically until cancelled
 </td></tr></table>
@@ -179,7 +179,7 @@ immediate and free, or just reply to this email.</p>
 A required check-in about your Bean Bros subscription.
 
 Subscription: ${lines.join(", ") || "Coffee subscription"}
-Amount:       ${money(amount)} per delivery
+Amount:       ${money(amount)} per delivery, before applicable tax and discounts
 How often:    ${frequencyLabel}
 Renews:       automatically until cancelled
 
@@ -197,7 +197,7 @@ ${POSTAL_ADDRESS}`;
 // Price change — AB 2863 requires 7–30 days' notice with cancellation info.
 // ---------------------------------------------------------------------------
 function priceChangeNotice({ name, oldAmount, newAmount, effectiveDate, frequencyLabel, portalUrl }) {
-  const cancel = portalUrl || "https://beanbrosbrewingco.com/#account";
+  const cancel = portalUrl || "https://beanbrosbrewingco.com/account.html";
   const html = shell(`
 <p style="margin:0 0 14px;">${name ? `Hi ${esc(name)},` : "Hi,"}</p>
 <p style="margin:0 0 14px;">We're changing the price of your subscription, and you should know before it happens.</p>
@@ -226,7 +226,7 @@ ${POSTAL_ADDRESS}`;
 }
 
 module.exports = {
-  send, isConfigured,
+  send, isConfigured, shell, esc,
   subscriptionAcknowledgment, renewalReminder, priceChangeNotice,
   FROM, POSTAL_ADDRESS,
 };

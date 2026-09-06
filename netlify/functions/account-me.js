@@ -51,6 +51,7 @@ exports.handler = async (event) => {
     }
 
     const updated = await A.updateUser(session.email, patch);
+    if(patch.newPassword&&updated.emailVerified){const care=require('./lib/customer-care');await care.queue('password-change:'+updated.id+':'+updated.sessionVersion,updated.email,care.message('Your Bean Bros password changed','Your password was changed. Other sessions have been signed out. If this was not you, reset your password and contact hello@beanbrosbrewingco.com.')).catch(e=>console.error('Password notice queue failed',e.name));}
     return {
       statusCode: 200,
       headers: { ...headers, "Content-Type": "application/json", "Cache-Control": "no-store" },

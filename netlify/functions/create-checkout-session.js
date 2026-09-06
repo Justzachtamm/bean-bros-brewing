@@ -68,6 +68,8 @@ exports.handler = async (event) => {
         return { statusCode: 400, headers: baseHeaders, body: JSON.stringify({ error: `Only ${product.stock} left of ${product.name}` }) };
       }
       const isSubscription = !!item.isSubscription;
+      const botanical = ['tea','herbs'].includes(product.category);
+      if(botanical && isSubscription)throw new Error('Herbs and teas are available as one-time purchases.');
       // Never take the client's spelling on trust. An unrecognised cadence
       // used to fall through to a silent 4-week default, so a customer could
       // be billed on a schedule they never chose; reject it loudly instead.
@@ -85,7 +87,7 @@ exports.handler = async (event) => {
       const price = isSubscription
         ? Math.round(product.price * (1 - SUBSCRIBE_DISCOUNT) * 100) / 100
         : product.price;
-      const grindLabel = grindLabels[item.grind] || Object.values(grindLabels).find((label) => label === item.grindLabel);
+      const grindLabel = botanical ? product.weight || 'As packaged' : grindLabels[item.grind] || Object.values(grindLabels).find((label) => label === item.grindLabel);
       if (!grindLabel) throw new Error("Select a valid grind.");
       items_.push({
         productId: product.id,

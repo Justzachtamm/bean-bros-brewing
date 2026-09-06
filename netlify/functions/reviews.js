@@ -1,0 +1,15 @@
+const {corsHeaders}=require('./lib/cors'),A=require('./lib/accounts'),db=require('./lib/db'),care=require('./lib/customer-care'),O=require('./lib/orders'),{consumeLimit,clientIp}=require('./lib/rate-limit'),crypto=require('crypto');
+exports.handler=async event=>{const headers=corsHeaders(event,{'Content-Type':'application/json','Cache-Control':'no-store'}),reply=(statusCode,body)=>({statusCode,headers,body:JSON.stringify(body)});
+try{if(event.httpMethod==='OPTIONS')return reply(200,{});if(!['GET','POST'].includes(event.httpMethod))return reply(405,{error:'Method not allowed'});
+ if(event.httpMethod==='GET'){const id=Number(event.queryStringParameters?.productId);if(!Number.isSafeInteger(id)||id<1)return reply(400,{error:'Choose a product'});await care.schema();return reply(200,{reviews:await db.query(`SELECT id,display_name,rating,body,created_at FROM product_reviews WHERE product_id=$1 AND status='approved' ORDER BY created_at DESC LIMIT 100`,[id])});}
+ const session=await A.requireSession(event,headers);if(session.error)return session.error;
+ if(!await consumeLimit('review:'+clientIp(event),30,3600))return reply(429,{error:'Please try again later.'});
+ const b=JSON.parse(event.body||'{}'),order=await O.getOrderById(String(b.orderId||''));if(!order||order.customerEmail.toLowerCase()!==session.email||!care.liveOrder(order))return reply(404,{error:'Order not found'});
+ await care.schema();
+ if(b.action==='received'){if(!['Paid','Shipped','Delivered'].includes(order.status))return reply(400,{error:'This order cannot be marked received.'});await O.updateOrder(order.id,{receivedAt:order.receivedAt||new Date().toISOString()});return reply(200,{ok:true});}
+ const productId=Number(b.productId);if(!care.delivered(order)||!care.purchasedItem(order,productId))return reply(403,{error:'Confirm receipt of this purchased product before reviewing it.'});
+ if(!Number.isInteger(b.rating)||b.rating<1||b.rating>5||typeof b.body!=='string'||b.body.trim().length<5||b.body.length>3000)return reply(400,{error:'Select 1–5 stars and write a review of 5–3,000 characters.'});
+ const survey={experience:Number(b.experience),packaging:String(b.packaging||'').slice(0,1000)};if(!Number.isInteger(survey.experience)||survey.experience<1||survey.experience>5)return reply(400,{error:'Rate your overall experience from 1 to 5.'});
+ const row=await db.one(`INSERT INTO product_reviews(id,order_id,product_id,email,display_name,rating,body,survey) VALUES($1,$2,$3,$4,$5,$6,$7,$8::jsonb) ON CONFLICT(order_id,product_id,email) DO NOTHING RETURNING id`,[crypto.randomUUID(),order.id,productId,session.email,(session.user.name||'Customer').split(' ')[0].slice(0,60),b.rating,b.body.trim(),JSON.stringify(survey)]);
+ return reply(row?200:409,row?{ok:true,message:'Thank you. Your review is awaiting approval; your survey stays private.'}:{error:'You have already reviewed this product from this order.'});
+}catch(e){console.error('Reviews',e.name);return reply(500,{error:'Reviews are temporarily unavailable.'})}};

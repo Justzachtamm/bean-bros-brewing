@@ -126,3 +126,9 @@
 # ---------------------------------------------------------------------------
 [functions."weekly-backup"]
   schedule = "0 8 * * 0"
+
+[functions."customer-care-hourly"]
+  schedule = "0 * * * *"
+
+[functions."customer-email-dispatch"]
+  schedule = "*/5 * * * *"

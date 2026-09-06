@@ -36,7 +36,7 @@ exports.handler = async (event) => {
       if (!row) return json(429, { error: "Please wait a minute before requesting another code." });
       const result = await mail.send({ to: user.email, subject: "Verify your Bean Bros email",
         text: `Your Bean Bros verification code is ${value}. It expires in 15 minutes. Enter it in your account to verify your email. If you did not request this, ignore this email.`,
-        html: `<p>Your Bean Bros verification code is <strong>${value}</strong>.</p><p>It expires in 15 minutes. Enter it in your account to verify your email. If you did not request this, ignore this email.</p>`,
+        html: mail.shell(`<p>Your Bean Bros verification code is <strong>${value}</strong>.</p><p>It expires in 15 minutes. Enter it in your account to verify your email. If you did not request this, ignore this email.</p>`),
         tag: "email-verification" });
       if (!result.ok) {
         await db.query("UPDATE accounts SET verification_hash = NULL WHERE id = $1 AND verification_hash = $2", [user.id, hash]);
@@ -69,6 +69,7 @@ exports.handler = async (event) => {
       throw err;
     } finally { client.release(); }
     if (!verified) return json(400, { error: "That code is invalid, expired, or has too many attempts. Request a new code." });
+    const care=require('./lib/customer-care');await care.queue('welcome:'+verified.id,verified.email,care.message('Welcome to Bean Bros','Your email is verified. You can now view your orders, manage deliveries and share reviews after your order arrives.')).catch(e=>console.error('Welcome queue failed',e.name));
     return json(200, { ok: true, token: A.issueSession(verified), user: A.publicUser(verified) });
   } catch (err) {
     console.error("Email verification failed:", err.name);

@@ -35,7 +35,7 @@ test('email verification enforces one-use codes, attempt limit and expiry in SQL
   const {user}=await A.createUser({email:'verification@example.test',password:'test-password'});
   const auth={authorization:'Bearer '+A.issueSession(user)};
   let sent;
-  const handler=loader({'netlify/functions/lib/db.js':db,'netlify/functions/lib/email.js':{isConfigured:()=>true,send:async payload=>{sent=payload;return{ok:true}}}})('netlify/functions/account-verify-email.js').handler;
+  const handler=loader({'netlify/functions/lib/db.js':db,'netlify/functions/lib/email.js':{isConfigured:()=>true,shell:x=>x,esc:String,send:async payload=>{sent=payload;return{ok:true}}}})('netlify/functions/account-verify-email.js').handler;
   assert.equal((await handler(event({action:'send'},{headers:auth}))).statusCode,200);
   const code=sent.text.match(/\b\d{8}\b/)[0];
   assert.equal((await handler(event({action:'send'},{headers:auth}))).statusCode,429);
@@ -113,4 +113,12 @@ test('authenticated label downloads are private and support legacy labels',async
   const handler=loader({'./lib/orders':{getOrderById:async()=>({labelKey:'label-existing.png'})},'@netlify/blobs':{connectLambda(){},getStore:name=>{accessed=name;return{get:async()=>Buffer.from('private-label')}}}})('netlify/functions/shipping-label.js').handler;
   const response=await handler(event({}, {httpMethod:'GET',headers:{authorization:'Bearer '+payload+'.'+signature},queryStringParameters:{orderId:'BB-OLD'}}));
   assert.equal(response.statusCode,200);assert.equal(accessed,'images');assert.equal(response.headers['Cache-Control'],'private, no-store');assert.equal(Buffer.from(response.body,'base64').toString(),'private-label');
+});
+test('password reset links expire, are single-use and revoke existing sessions',async()=>{
+ const {user}=await A.createUser({email:'reset@example.test',password:'original-password'});const old=A.issueSession(user);let sent;
+ const h=loader({'netlify/functions/lib/db.js':db,'./lib/email':{isConfigured:()=>true,send:async p=>{sent=p;return{ok:true}}},'./lib/customer-care':{message:(subject,body,link)=>({subject,text:body+' '+link}),queue:async()=>{}}})('netlify/functions/account-reset-password.js').handler;
+ assert.equal((await h(event({action:'request',email:user.email}))).statusCode,200);const token=sent.text.match(/#reset=([a-f0-9]{64})/)[1];
+ await db.query("UPDATE password_resets SET expires_at=now()-interval '1 minute'");assert.equal((await h(event({action:'reset',token,password:'replacement-password'}))).statusCode,400);
+ await db.query("UPDATE password_resets SET expires_at=now()+interval '1 minute'");assert.equal((await h(event({action:'reset',token,password:'replacement-password'}))).statusCode,200);
+ assert.equal((await h(event({action:'reset',token,password:'another-password'}))).statusCode,400);assert.equal(A.verifyPassword('replacement-password',(await A.findUser(user.email)).passwordHash),true);assert.equal((await A.requireSession(event({}, {headers:{authorization:'Bearer '+old}}),{})).error.statusCode,401);
 });

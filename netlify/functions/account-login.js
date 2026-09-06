@@ -35,6 +35,7 @@ exports.handler = async (event) => {
     }
 
     await A.clearFailures(email);
+    if(user.emailVerified){const care=require('./lib/customer-care');await care.queue('login:'+user.id+':'+Math.floor(Date.now()/3600000),user.email,care.message('A new sign-in to your Bean Bros account','Your account was signed into just now. If this was you, you’re all set. If this was not you, reset your password from your account and contact us.')).catch(e=>console.error('Sign-in notice queue failed',e.name));}
     return {
       statusCode: 200,
       headers: { ...headers, "Content-Type": "application/json", "Cache-Control": "no-store" },
