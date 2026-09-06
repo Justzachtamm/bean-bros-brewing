@@ -1,0 +1,83 @@
+{
+  "jobs": [
+    {
+      "index": 0,
+      "job_id": "77233137-fa3d-40a4-982d-433608f79dd0",
+      "status": "completed",
+      "type": "image",
+      "model": "nano_banana_2",
+      "result_url": "https://d8j0ntlcm91z4.cloudfront.net/user_3Hj2Xsn9EDkG5jk33uPZ2SDGHqm/hf_20260906_211854_77233137-fa3d-40a4-982d-433608f79dd0.png"
+    },
+    {
+      "index": 1,
+      "job_id": "f4dd8e66-7aeb-4639-89ca-fc2ce5ac5409",
+      "status": "completed",
+      "type": "image",
+      "model": "nano_banana_2",
+      "result_url": "https://d8j0ntlcm91z4.cloudfront.net/user_3Hj2Xsn9EDkG5jk33uPZ2SDGHqm/hf_20260906_211854_f4dd8e66-7aeb-4639-89ca-fc2ce5ac5409.png"
+    },
+    {
+      "index": 3,
+      "job_id": "c29fc936-2fa0-4442-ad71-feb32b3adb73",
+      "status": "completed",
+      "type": "video",
+      "model": "seedance_2_5",
+      "result_url": "https://d8j0ntlcm91z4.cloudfront.net/user_3Hj2Xsn9EDkG5jk33uPZ2SDGHqm/hf_20260906_212112_c29fc936-2fa0-4442-ad71-feb32b3adb73.mp4",
+      "thumbnail_url": "https://d2ol7oe51mr4n9.cloudfront.net/user_3Hj2Xsn9EDkG5jk33uPZ2SDGHqm/5933558e-e2a2-4d28-a93b-013d9fdd8a41.png"
+    },
+    {
+      "index": 5,
+      "job_id": "b887eee1-2922-4a01-abc6-9dbbbbbc8e14",
+      "status": "completed",
+      "type": "video",
+      "model": "seedance_2_5",
+      "result_url": "https://d8j0ntlcm91z4.cloudfront.net/user_3Hj2Xsn9EDkG5jk33uPZ2SDGHqm/hf_20260906_212112_b887eee1-2922-4a01-abc6-9dbbbbbc8e14.mp4",
+      "thumbnail_url": "https://d2ol7oe51mr4n9.cloudfront.net/user_3Hj2Xsn9EDkG5jk33uPZ2SDGHqm/e33931e9-027c-400c-9226-2afd8b015c46.png"
+    },
+    {
+      "index": 6,
+      "job_id": "e55d5c0e-7cb2-4868-aa0a-7ebbe203712b",
+      "status": "completed",
+      "type": "video",
+      "model": "seedance_2_5",
+      "result_url": "https://d8j0ntlcm91z4.cloudfront.net/user_3Hj2Xsn9EDkG5jk33uPZ2SDGHqm/hf_20260906_212112_e55d5c0e-7cb2-4868-aa0a-7ebbe203712b.mp4",
+      "thumbnail_url": "https://d2ol7oe51mr4n9.cloudfront.net/user_3Hj2Xsn9EDkG5jk33uPZ2SDGHqm/f869ca3b-aad5-4c84-8487-005b72a8674f.png"
+    },
+    {
+      "index": 4,
+      "job_id": "f0587f11-8e4f-4745-90f3-62848a2b1f1f",
+      "status": "completed",
+      "type": "video",
+      "model": "seedance_2_5",
+      "result_url": "https://d8j0ntlcm91z4.cloudfront.net/user_3Hj2Xsn9EDkG5jk33uPZ2SDGHqm/hf_20260906_212112_f0587f11-8e4f-4745-90f3-62848a2b1f1f.mp4",
+      "thumbnail_url": "https://d2ol7oe51mr4n9.cloudfront.net/user_3Hj2Xsn9EDkG5jk33uPZ2SDGHqm/3a50c94d-07d1-492e-8eb0-2dca2f17abb3.png"
+    }
+  ],
+  "exports": [
+    {
+      "media_id": "e2b4b616-abc8-4778-a20b-706560ea3d38",
+      "url": "https://d2ol7oe51mr4n9.cloudfront.net/user_3Hj2Xsn9EDkG5jk33uPZ2SDGHqm/e2b4b616-abc8-4778-a20b-706560ea3d38.mp4"
+    },
+    {
+      "media_id": "43225288-ee74-40c1-a8cd-9e803e06650f",
+      "url": "https://d2ol7oe51mr4n9.cloudfront.net/user_3Hj2Xsn9EDkG5jk33uPZ2SDGHqm/43225288-ee74-40c1-a8cd-9e803e06650f.mp4"
+    },
+    {
+      "media_id": "a12f8591-dc0a-44bd-826a-7ea0601fcd60",
+      "url": "https://d2ol7oe51mr4n9.cloudfront.net/user_3Hj2Xsn9EDkG5jk33uPZ2SDGHqm/a12f8591-dc0a-44bd-826a-7ea0601fcd60.mp4"
+    },
+    {
+      "media_id": "c7b1de94-19a6-462f-873d-9e0efb30088a",
+      "url": "https://d2ol7oe51mr4n9.cloudfront.net/user_3Hj2Xsn9EDkG5jk33uPZ2SDGHqm/c7b1de94-19a6-462f-873d-9e0efb30088a.mp4"
+    },
+    {
+      "media_id": "4e229eaa-eb1d-4b9c-b3b1-f4b03d8a5074",
+      "url": "https://d2ol7oe51mr4n9.cloudfront.net/user_3Hj2Xsn9EDkG5jk33uPZ2SDGHqm/4e229eaa-eb1d-4b9c-b3b1-f4b03d8a5074.jpg"
+    },
+    {
+      "media_id": "018c769b-6ff6-4b91-b8fe-1b1f1a0a974c",
+      "url": "https://d2ol7oe51mr4n9.cloudfront.net/user_3Hj2Xsn9EDkG5jk33uPZ2SDGHqm/018c769b-6ff6-4b91-b8fe-1b1f1a0a974c.zip"
+    }
+  ],
+  "nicaragua": "Pending user clarification of name and tasting notes"
+}
