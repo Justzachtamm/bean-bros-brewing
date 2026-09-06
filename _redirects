@@ -5,5 +5,9 @@
 /site.webmanifest  /site.webmanifest  200
 /assets/*          /assets/:splat     200
 
+/admin /admin.html 200
+/account /account.html 200
+/operations /operations.html 200
+
 # SPA fallback (must stay last)
 /*    /index.html   200

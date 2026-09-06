@@ -74,7 +74,8 @@ test('public build contains neither backend source nor unused bundles',()=>{
  const html=fs.readFileSync(path.join(root,'dist/index.html'),'utf8');
  assert.match(html,/assets\/app-[a-f0-9]{16}\.js/);
  for(const file of ['netlify','.env','package.json','tests','scripts','website-audit'])assert.equal(fs.existsSync(path.join(root,'dist',file)),false);
- assert.equal(fs.readdirSync(path.join(root,'dist/assets')).filter(f=>f.endsWith('.js')).length,1);
+ const pages=['index.html','admin.html','account.html','operations.html'].map(p=>fs.readFileSync(path.join(root,'dist',p),'utf8')).join('');
+ for(const file of fs.readdirSync(path.join(root,'dist/assets')).filter(f=>f.endsWith('.js')))assert.ok(pages.includes('/assets/'+file),'Unreferenced bundle: '+file);
 });
 test('packing slips escape customer-controlled HTML before opening an admin window',()=>{
  const vm=require('node:vm');

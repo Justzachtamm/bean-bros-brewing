@@ -15,15 +15,23 @@ function copy(source, target=source) {
   fs.mkdirSync(path.dirname(dest), {recursive:true});
   fs.copyFileSync(path.join(root, source),dest);
 }
-let html = fs.readFileSync(path.join(root,'index.html'),'utf8');
-const assets = [...html.matchAll(/(?:src|href)="\/(assets\/[A-Za-z0-9_.-]+\.(?:js|css))"/g)].map(match=>match[1]);
-if(!assets.some(file=>file.endsWith('.js')))throw Error('No application bundle found');
-for(const asset of new Set(assets)) {
+const pages = ['index.html','admin.html','account.html','operations.html'];
+for(const page of pages) {
+ let html = fs.readFileSync(path.join(root,page),'utf8');
+ const assets = [...html.matchAll(/(?:src|href)="\/(assets\/[A-Za-z0-9_.-]+\.(?:js|css))"/g)].map(match=>match[1]);
+ if(!assets.some(file=>file.endsWith('.js')))throw Error('No application bundle found: '+page);
+ for(const asset of new Set(assets)) {
   const bytes = fs.readFileSync(path.join(root,asset));
   const digest = crypto.createHash('sha256').update(bytes).digest('hex').slice(0,16);
   const target = `assets/app-${digest}${path.extname(asset)}`;
   copy(asset,target);html=html.replaceAll('/'+asset,'/'+target);
+ }
+ fs.writeFileSync(path.join(out,page),html);
+}
+for(const dir of ['assets/brand','assets/products']) {
+ for(const file of fs.readdirSync(path.join(root,dir))) {
+  if(/^[A-Za-z0-9_.-]+\.(?:jpg|png|webp|svg)$/.test(file))copy(dir+'/'+file);
+ }
 }
 for(const file of staticFiles)copy(file);
-fs.writeFileSync(path.join(out,'index.html'),html);
-console.log('Built storefront into dist; server files excluded.');
+console.log('Built customer and admin pages into dist; server files excluded.');

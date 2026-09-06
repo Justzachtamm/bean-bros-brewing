@@ -32,6 +32,13 @@ async function buildSnapshot() {
     snapshot.tables[name] = rows;
     snapshot.counts[name] = rows.length;
   }
+  // Older database branches may not yet have the business workspace table.
+  const workspace = await db.query("SELECT to_regclass('public.admin_workspace_records') AS table_name");
+  if (workspace[0]?.table_name) {
+    const rows = await db.query('SELECT * FROM admin_workspace_records ORDER BY created_at');
+    snapshot.tables.admin_workspace_records = rows;
+    snapshot.counts.admin_workspace_records = rows.length;
+  }
   return snapshot;
 }
 
