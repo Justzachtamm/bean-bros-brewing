@@ -80,8 +80,8 @@ function intervalForFrequency(frequency) {
 
 async function findCustomerByEmail(stripe, email, customerId = null) {
   if (customerId) {
-    const customer = await stripe.customers.retrieve(customerId);
-    return customer.deleted ? null : customer;
+    try { const customer = await stripe.customers.retrieve(customerId); if (!customer.deleted) return customer; }
+    catch (e) { if (e.code !== 'resource_missing') throw e; }
   }
   if (!email || typeof email !== "string") return null;
   const customers = await stripe.customers.list({ email: email.toLowerCase().trim(), limit: 1 });
