@@ -23,6 +23,7 @@ exports.handler=async event=>{
   let input;try{input=JSON.parse(event.body||'{}')}catch{return reply(400,{error:'Invalid JSON'})}
   if(!input||typeof input!=='object'||Array.isArray(input))return reply(400,{error:'Invalid request.'});
   if(event.httpMethod==='PATCH'){
+   if(input.action==='product'){const result=await require('./lib/admin-product').editProduct(input);return reply(result.status,result);}
    if(input.action==='stock'){
     if(!Number.isSafeInteger(input.productId)||!Number.isInteger(input.stock)||input.stock<0||input.stock>2147483647||!Number.isInteger(input.expectedStock))return reply(400,{error:'Enter a valid stock count.'});
     const rows=await db.query('UPDATE products SET stock=$2,updated_at=now() WHERE id=$1 AND stock=$3 RETURNING id,stock',[input.productId,input.stock,input.expectedStock]);

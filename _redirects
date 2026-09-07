@@ -7,7 +7,8 @@
 
 /admin /admin.html 200
 /account /account.html 200
-/operations /operations.html 200
+/operations /admin.html#settings 301!
+/operations.html /admin.html#settings 301!
 
 /collections /collections/ 301
 
