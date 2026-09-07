@@ -24,3 +24,7 @@ New Jersey P.L.2023 c.241 requires an online way to initiate cancellation for su
 California AG's 2025 guidance describes annual reminders and 7–30-day advance fee-change notices: https://oag.ca.gov/node/608083
 The FTC's March 2026 notice confirms the 2024 amended negative-option rule was vacated; it is not treated here as an operative nationwide click-to-cancel rule: https://www.ftc.gov/news-events/news/press-releases/2026/03/ftc-seeks-public-comment-response-advance-notice-proposed-rulemaking-regarding-negative-option
 These are operational safeguards for the current US store, not a certification covering every state, future plan length, promotion or trial. Review notice timing before introducing new long-term commitments or trials. Existing online cancellation remains available without contacting staff.
+
+## Email authentication repair
+
+September 6, 2026: Brevo API IP blocking was active with an empty allowlist. Netlify used different outbound IPs across functions. With the owner’s explicit approval, API IP blocking was disabled while secret-key authentication remains required. The sender and reply-to now use the existing verified zach@beanbrosbrewingco.com address; its domain has DKIM and DMARC configured in Brevo. After propagation, the live account verification endpoint successfully submitted an email to the owner’s signed-in account. Provider acceptance was verified; inbox receipt remains user-confirmed.
