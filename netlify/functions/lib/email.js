@@ -93,9 +93,11 @@ function shell(bodyHtml) {
   return `<!DOCTYPE html><html><body style="margin:0;padding:0;background:#f6f4f1;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;color:#1a1612;">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f6f4f1;padding:24px 12px;"><tr><td align="center">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background:#ffffff;border-radius:10px;padding:28px;">
-<tr><td style="font-family:Georgia,serif;font-size:19px;color:#1a1612;padding-bottom:18px;border-bottom:1px solid #eae5df;">Bean Bros Brewing Co.</td></tr>
+<tr><td align="center" style="font-family:Georgia,serif;font-size:19px;color:#1a1612;padding-bottom:18px;border-bottom:1px solid #eae5df;"><a href="https://beanbrosbrewingco.com" style="text-decoration:none;"><img src="https://beanbrosbrewingco.com/assets/brand/Bean-Bros-Full-Logo-2x2-Inverted.jpg" width="180" height="180" alt="Bean Bros Brewing Co." style="display:block;width:180px;height:180px;border:0;margin:0 auto;"></a></td></tr>
 <tr><td style="padding-top:20px;font-size:15px;line-height:1.6;">${bodyHtml}</td></tr>
 <tr><td style="padding-top:24px;border-top:1px solid #eae5df;font-size:12px;line-height:1.6;color:#8a8178;">
+<strong style="color:#1a1612;">Bean Bros Brewing Co.</strong><br>
+<a href="mailto:hello@beanbrosbrewingco.com" style="color:#8a8178;">hello@beanbrosbrewingco.com</a><br>
 ${esc(POSTAL_ADDRESS)}<br>
 <a href="https://beanbrosbrewingco.com" style="color:#8a8178;">beanbrosbrewingco.com</a>
 </td></tr></table></td></tr></table></body></html>`;
