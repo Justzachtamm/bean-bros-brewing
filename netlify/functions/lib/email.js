@@ -16,8 +16,8 @@ const https = require("https");
 
 const API_HOST = "api.brevo.com";
 const API_PATH = "/v3/smtp/email";
-const FROM = { name: "Bean Bros Brewing Co.", email: "zach@beanbrosbrewingco.com" };
-const REPLY_TO = { email: "zach@beanbrosbrewingco.com" };
+const FROM = { name: "Bean Bros Brewing Co.", email: "hello@beanbrosbrewingco.com" };
+const REPLY_TO = { email: "hello@beanbrosbrewingco.com" };
 const POSTAL_ADDRESS = "Bean Bros Brewing Co., 556 North Route 17, Paramus, NJ 07652";
 
 function isConfigured() {
