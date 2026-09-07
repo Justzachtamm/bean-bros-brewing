@@ -73,7 +73,16 @@ exports.handler = async (event) => {
 
   try {
     const config = await getShippingConfig();
-    const packageDetails = getPackageDetails(order.items.filter(item => !item.isShipping));
+    let packageDetails = order.shippingPackage;
+    if (!packageDetails) {
+      const {getProductByName} = require('./lib/products');
+      const items = await Promise.all(order.items.filter(item => !item.isShipping).map(async item => {
+        const product = await getProductByName(item.name);
+        if (!product) throw Error('Product shipping measurements are missing.');
+        return {...product,productId:product.id,quantity:item.quantity};
+      }));
+      packageDetails = getPackageDetails(items, config);
+    }
 
     const result = await ups.createShipment({
       shipFrom: {
@@ -91,6 +100,7 @@ exports.handler = async (event) => {
         city: order.shippingAddress.city,
         state: order.shippingAddress.state,
         zip: order.shippingAddress.zip,
+        residential: order.shippingAddress.residential !== false,
       },
       weightLbs: packageDetails.weightLbs,
       packagingCode: packageDetails.packagingCode,

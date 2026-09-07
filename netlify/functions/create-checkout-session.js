@@ -8,10 +8,12 @@ const { getProductByName } = require("./lib/products");
 const { corsHeaders } = require("./lib/cors");
 const { getShippingConfig } = require("./lib/shipping-config");
 const { intervalForFrequency, normalizeFrequency, isSelectableFrequency } = require("./lib/subscriptions");
-const { getPackageDetails, getShippingOptions, FLAT_GROUND_RATE_CENTS, REFERENCE_SHIP_TO } = require("./lib/shipping-rates");
+const { getPackageDetails, getShippingOptions } = require("./lib/shipping-rates");
 
 const { taxCode } = require("./lib/accounting");
 const businessRecords = require("./lib/business-records");
+
+const { shippingAddress, stripeShipping } = require("./lib/shipping-address");
 
 const SUBSCRIBE_DISCOUNT = 0.1;
 
@@ -37,11 +39,11 @@ exports.handler = async (event) => {
   }
 
   try {
-    const { items, successUrl, cancelUrl } = JSON.parse(event.body || "{}");
+    const { items, successUrl, cancelUrl, shipTo, action, shippingService, shippingAmount } = JSON.parse(event.body || "{}");
     if (!Array.isArray(items) || items.length === 0 || items.length > 50) {
       return { statusCode: 400, headers: baseHeaders, body: JSON.stringify({ error: "No items in cart" }) };
     }
-    if (!isAllowedRedirect(successUrl) || !isAllowedRedirect(cancelUrl)) {
+    if (action !== "quote" && (!isAllowedRedirect(successUrl) || !isAllowedRedirect(cancelUrl))) {
       return { statusCode: 400, headers: baseHeaders, body: JSON.stringify({ error: "Invalid redirect URL" }) };
     }
 
@@ -91,6 +93,8 @@ exports.handler = async (event) => {
       if (!grindLabel) throw new Error("Select a valid grind.");
       items_.push({
         productId: product.id,
+        weight: product.weight,
+        shippingCategory: product.category || "coffee",
         category: profiles.find(p => p.id === String(product.id))?.body.category || product.category || "coffee",
         name: product.name,
         grindLabel,
@@ -145,7 +149,7 @@ exports.handler = async (event) => {
     // threshold is evaluated against what's actually being charged today,
     // same as everything else in this checkout.
     const subtotal = items_.reduce((sum, i) => sum + i.price * i.quantity, 0);
-    const qualifiesForFreeShipping = subtotal >= (shippingConfig.freeShipThreshold ?? 0);
+    const qualifiesForFreeShipping = Number(shippingConfig.freeShipThreshold) > 0 && subtotal >= shippingConfig.freeShipThreshold;
 
     const hasSubscription = items_.some((i) => i.isSubscription);
     const hasOneTime = items_.some((i) => !i.isSubscription);
@@ -182,24 +186,28 @@ exports.handler = async (event) => {
       }
     }
 
+    const destination = shippingAddress(shipTo);
+    const packageDetails = getPackageDetails(items_, shippingConfig);
+    let options = await getShippingOptions(destination, packageDetails, shippingConfig, qualifiesForFreeShipping);
+    if (hasSubscription) options = options.filter(o => o.serviceCode === "03");
+    if (!options.length) throw Error("No shipping services are available for this shipment.");
+    if (action === "quote") return { statusCode:200, headers:baseHeaders, body:JSON.stringify({options, recurring:hasSubscription}) };
+    const selected = options.find(o => o.serviceCode === shippingService);
+    if (!selected || selected.amountCents !== shippingAmount) return {statusCode:409,headers:baseHeaders,body:JSON.stringify({error:"Shipping rates changed. Please get updated rates and choose a service."})};
+
     let mode = "payment";
     let sessionLineItems = line_items;
     if (hasSubscription && !hasOneTime) {
       mode = "subscription";
-      // Stripe rejects shipping_options in subscription mode, so recurring
-      // shipping has to ride along as its own recurring line item instead —
-      // otherwise Subscribe & Save orders ship for $0 forever while the
-      // business keeps paying UPS's real cost every renewal. Flat-rate, not
-      // live-quoted — UPS doesn't rate future/recurring shipments, only
-      // real ones being tendered now. Billed on the same cadence as the
-      // subscription itself (guaranteed uniform by the cadence check above).
+      // Quote Ground for the first shipment and disclose the same recurring
+      // shipping amount for this subscription; future carrier rates can vary.
       if (!qualifiesForFreeShipping) {
         line_items.push({
           price_data: {
             currency: "usd",
         ...(taxEnabled ? { tax_behavior: "exclusive" } : {}),
             product_data: { name: "Shipping", ...(taxEnabled ? { tax_code: "txcd_92010001" } : {}), metadata: { kind: "shipping", service_code: "03" } },
-            unit_amount: FLAT_GROUND_RATE_CENTS,
+            unit_amount: selected.amountCents,
             recurring: intervalForFrequency(items_[0].frequency),
           },
           quantity: 1,
@@ -224,19 +232,10 @@ exports.handler = async (event) => {
       }));
     }
 
-    // Address is collected on Stripe's own hosted page now (its validation/
-    // correction applies there), so we don't know the customer's real
-    // destination yet when this session is created — Stripe's
-    // shipping_options are fixed at creation time regardless. These tiers
-    // are still real, live-pulled UPS rates, just computed against a fixed
-    // reference destination rather than each customer's exact address. Only
-    // needed in "payment" mode — subscriptions bill shipping as their own
-    // flat recurring line item above, not through Stripe's shipping_options.
+    // Re-rate the exact destination and cart on the server before payment.
     let shipping_options;
     if (mode === "payment") {
-      const packageDetails = getPackageDetails(items_);
-      const options = await getShippingOptions(REFERENCE_SHIP_TO, packageDetails, shippingConfig, qualifiesForFreeShipping);
-      shipping_options = options.map((o) => ({
+      shipping_options = [selected].map((o) => ({
         shipping_rate_data: {
           type: "fixed_amount",
           ...(taxEnabled ? { tax_behavior: "exclusive", tax_code: "txcd_92010001" } : {}),
@@ -255,7 +254,7 @@ exports.handler = async (event) => {
     const sessionConfig = {
       mode,
       ...(taxEnabled ? { automatic_tax: { enabled: true } } : {}),
-      metadata: { receipt_token_hash: crypto.createHash("sha256").update(receiptToken).digest("hex"), fulfillment_version: "2" },
+      metadata: { receipt_token_hash: crypto.createHash("sha256").update(receiptToken).digest("hex"), fulfillment_version: "2", quoted_shipping: JSON.stringify(destination), shipping_package: JSON.stringify(packageDetails) },
       line_items: sessionLineItems,
       success_url: checkoutSuccessUrl(successUrl),
       cancel_url: cancelUrl,
@@ -263,14 +262,10 @@ exports.handler = async (event) => {
       phone_number_collection: { enabled: true },
       payment_method_types: ["card"],
     };
-    if (mode === "payment" || mode === "subscription") {
-      // Stripe's own hosted-page address form — includes its own
-      // validation/correction. This is the only place the customer enters
-      // their address; it's also what the order-recording webhook reads
-      // (session.shipping_details), so it's the single source of truth for
-      // the address actually saved on the order.
-      sessionConfig.shipping_address_collection = { allowed_countries: ["US"] };
-    }
+    // The shipping address is fixed to the address used for the quote. The
+    // customer can return to the bag to edit it and request a fresh quote.
+    sessionConfig.custom_text = {submit:{message:`Deliver to: ${destination.name}, ${destination.address}${destination.address2 ? ', '+destination.address2 : ''}, ${destination.city}, ${destination.state} ${destination.zip}. To change delivery details, return to your bag.`}};
+    if (mode === "payment") sessionConfig.payment_intent_data = {shipping:stripeShipping(destination)};
     if (mode === "payment") {
       // Stripe rejects shipping_options entirely in subscription mode — a
       // per-checkout shipping-speed picker doesn't apply to a recurring
@@ -286,11 +281,18 @@ exports.handler = async (event) => {
     if (account) {
       sessionConfig.customer = await checkoutCustomer(stripe, account.user);
       delete sessionConfig.customer_creation;
-      if (taxEnabled) sessionConfig.customer_update = { address: "auto", shipping: "auto" };
+      if (taxEnabled) sessionConfig.customer_update = { address: "auto" };
       sessionConfig.client_reference_id = account.user.id;
     }
+    if (!sessionConfig.customer) {
+      const customer = await stripe.customers.create({name:destination.name,shipping:stripeShipping(destination)});
+      sessionConfig.customer = customer.id;
+      delete sessionConfig.customer_creation;
+    } else {
+      await stripe.customers.update(sessionConfig.customer, {shipping:stripeShipping(destination)});
+    }
     if (mode === "subscription") {
-      sessionConfig.subscription_data = { metadata: { fulfillment_version: "2", shipping_service: "03" } };
+      sessionConfig.subscription_data = { metadata: { fulfillment_version: "2", shipping_service: "03", shipping_address:JSON.stringify(destination), shipping_package:JSON.stringify(packageDetails) } };
     }
     const session = await stripe.checkout.sessions.create(sessionConfig);
     return {

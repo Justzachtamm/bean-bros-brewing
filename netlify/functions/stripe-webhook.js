@@ -1,3 +1,4 @@
+const { checkoutShipping } = require("./lib/shipping-address");
 const { snapshot } = require("./lib/accounting");
 const businessRecords = require("./lib/business-records");
 const Stripe = require("stripe");
@@ -38,15 +39,16 @@ function toShippingAddress(shippingDetails) {
     state: a.state || "",
     zip: a.postal_code || "",
     country: a.country || "US",
+    residential: shippingDetails.residential !== false,
   };
 }
 
-async function recordOrder(stripe, { id, sourceId, customerId, customerName, customerEmail, items, total, shippingAddress, shippingService, accounting }) {
+async function recordOrder(stripe, { id, sourceId, customerId, customerName, customerEmail, items, total, shippingAddress, shippingService, shippingPackage, accounting }) {
   if (!shippingAddress?.address || !shippingAddress.zip) throw new Error("Shipping address is missing; retry after Checkout is available");
   const recorded=await recordPaidOrder({ id, sessionId: sourceId, customerId: customerId || "",
     date: accounting?.paidAt || new Date().toISOString(), customerName: customerName || "Unknown",
     customerEmail: customerEmail || "", items, total, status: "Paid", shippingAddress,
-    extra: { shippingService, accounting }, trackingNumber: null, labelKey: null });
+    extra: { shippingService, shippingPackage, accounting }, trackingNumber: null, labelKey: null });
   if(accounting?.livemode===true&&customerEmail){const care=require('./lib/customer-care');await care.queue('order:'+id,customerEmail,care.message('Your Bean Bros order is confirmed',`Thank you for your order ${id}.\n${items.filter(i=>!i.isShipping).map(i=>i.quantity+' × '+i.name).join('\n')}\nPaid total: $${Number(total).toFixed(2)}. We’ll email you when your package ships.`));}
   return recorded;
 }
@@ -97,8 +99,9 @@ exports.handler = async (event) => {
           customerEmail: session.customer_details?.email,
           items: toOrderItems(lineItems.data),
           total: (session.amount_total || 0) / 100,
-          shippingAddress: toShippingAddress(session.shipping_details || session.collected_information?.shipping_details),
+          shippingAddress: toShippingAddress(checkoutShipping(session)),
           shippingService: await shippingService(stripe, session),
+          shippingPackage: session.metadata?.shipping_package ? JSON.parse(session.metadata.shipping_package) : null,
         });
       } else if (session.mode === "subscription" && session.subscription) {
         // Subscriptions are recorded via invoice.paid instead (fires for the
@@ -108,7 +111,7 @@ exports.handler = async (event) => {
         // checkout — Invoices don't carry it. Stash it on the Subscription's
         // own metadata so every future invoice.paid (including this first
         // one) can read it back.
-        const shipping = toShippingAddress(session.shipping_details || session.collected_information?.shipping_details);
+        const shipping = toShippingAddress(checkoutShipping(session));
         if (shipping) {
           const subscriptionId = typeof session.subscription === "string" ? session.subscription : session.subscription.id;
           await stripe.subscriptions.update(subscriptionId, {
@@ -151,7 +154,7 @@ exports.handler = async (event) => {
         const subscriptionId = typeof subscription === "string" ? subscription : subscription.id;
         const sessions = await stripe.checkout.sessions.list({ subscription: subscriptionId, limit: 1 });
         const checkout = sessions.data[0];
-        shippingAddress = toShippingAddress(checkout?.shipping_details || checkout?.collected_information?.shipping_details);
+        shippingAddress = toShippingAddress(checkout ? checkoutShipping(checkout) : null);
         // Read Checkout directly: Stripe may deliver invoice.paid before checkout.session.completed.
       }
       if (invoice.lines.has_more) throw new Error("Invoice has too many lines to fulfill safely");

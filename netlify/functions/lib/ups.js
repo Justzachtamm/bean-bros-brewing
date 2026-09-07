@@ -57,7 +57,7 @@ async function getAccessToken() {
   return cachedToken;
 }
 
-function buildAddress({ name, address, address2, city, state, zip, country = "US" }) {
+function buildAddress({ name, address, address2, city, state, zip, country = "US", residential = false }) {
   return {
     Name: name,
     Address: {
@@ -66,6 +66,7 @@ function buildAddress({ name, address, address2, city, state, zip, country = "US
       StateProvinceCode: state,
       PostalCode: zip,
       CountryCode: country,
+      ...(residential ? { ResidentialAddressIndicator: "" } : {}),
     },
   };
 }

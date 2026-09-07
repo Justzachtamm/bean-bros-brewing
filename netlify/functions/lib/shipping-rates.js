@@ -1,14 +1,5 @@
 const ups = require("./ups");
 
-const LBS_PER_BAG = 1.2; // ~16oz bag + packaging, rough estimate (scaled up from the 12oz-bag estimate when bag size changed)
-const BOX_BASE_WEIGHT_LBS = 0.5;
-// Flat recurring shipping fee for Subscribe & Save orders — UPS has no
-// concept of a live rate for a shipment that hasn't happened yet, so
-// subscriptions are the one place a flat fee is the correct model, not a
-// fallback. One-time orders always use a real, live-pulled UPS rate; see
-// getShippingOptions below, which throws rather than ever guessing one.
-const FLAT_GROUND_RATE_CENTS = 799;
-
 // Stripe rejects a Checkout Session carrying more than five shipping_options
 // ("Array shipping_options exceeded maximum 5 allowed elements"), which took
 // checkout down entirely for any address where UPS returned six or more
@@ -22,45 +13,32 @@ const UPS_SERVICE_NAMES = {
   "01": { name: "UPS Next Day Air", minDays: 1, maxDays: 1 },
 };
 
-// Address collection now happens entirely on Stripe's hosted checkout page
-// (so its own address validation/correction applies), which means we no
-// longer know the customer's real destination before creating the session —
-// Stripe's shipping_options are fixed at session-creation time and can't be
-// recalculated once the customer types their address on Stripe's page.
-// Rather than guess a price, these tiers are computed from a REAL UPS rate
-// call against a fixed reference destination (a roughly-central, real US
-// address), so the numbers are genuine current UPS pricing — just not
-// specific to each customer's actual location. Columbus, OH is a reasonable
-// stand-in for "typical" US shipping distance from the shop's NJ origin.
-const REFERENCE_SHIP_TO = { name: "Reference Destination", address: "175 S 3rd St", city: "Columbus", state: "OH", zip: "43215" };
-
-// A single 16oz bag (1 lb of product) ships in a bubble mailer instead of a
-// box — lighter overhead and real physical dimensions, which affects
-// dimensional-weight pricing. Two or more bags no longer fit a mailer and go
-// in a box (no fixed dimensions — UPS rates it on weight alone, as before).
-//
-// Packaging code is "02" (Customer Supplied Package) for BOTH cases, not
-// UPS's "04" (PAK) for the mailer — confirmed live against UPS's Rating API
-// that PAK excludes Ground and 3 Day Select entirely (Air services only),
-// which would silently hide the cheapest option from anyone ordering a
-// single bag. "02" rates correctly off the given weight/dimensions with the
-// full service list available, same as a box.
-const MAILER_MAX_BAGS = 1;
-const MAILER_WEIGHT_LBS = 1.2; // fixed: one 16oz bag + mailer packaging
-const MAILER_DIMENSIONS_IN = { length: "15", width: "12", height: "4" };
-
+// Owner-supplied packing rules: catalog net weight plus 8 oz per shipment.
+// Bags are stacked on their widest face; dimensions are rounded up for UPS.
+function netWeightLbs(label) {
+  const m = String(label || '').match(/^(\d+(?:\.\d+)?)\s*(oz|ounces?|lbs?|pounds?|kg|g|grams?)\b/i);
+  if (!m || Number(m[1]) <= 0) throw Error("A product needs a valid shipping weight before checkout.");
+  const unit=m[2].toLowerCase(), n=Number(m[1]);
+  return unit.startsWith('oz')||unit.startsWith('ounce') ? n/16 : unit==='kg' ? n*2.2046226218 : unit==='g'||unit.startsWith('gram') ? n/453.59237 : n;
+}
 function getPackageDetails(items) {
-  const totalBags = items.reduce((sum, i) => sum + i.quantity, 0);
-  if (totalBags <= MAILER_MAX_BAGS) {
-    return { weightLbs: MAILER_WEIGHT_LBS, packagingCode: "02", dimensions: MAILER_DIMENSIONS_IN };
+  let weight=0.5,length=0,width=0,height=0;
+  for (const item of items) {
+    if (!Number.isInteger(item.quantity) || item.quantity < 1) throw Error("Invalid shipment quantity.");
+    const botanical=['tea','herbs'].includes(item.shippingCategory || item.category);
+    const bundle=botanical && /^3 individual bags$/i.test(item.weight || '');
+    // These three catalog bundles explicitly list three 1 oz bags.
+    if (bundle && ![900002,900003,900004].includes(Number(item.productId))) throw Error("Bundle weight needs confirmation.");
+    const net=bundle ? 3/16 : netWeightLbs(item.weight);
+    const dims=botanical ? [8,6,0.25*(bundle?3:1)] : net<=0.5 ? [9,6,3] : net<=1 ? [14,6,3] : null;
+    if (!dims) throw Error("This product needs packaging dimensions before checkout.");
+    weight+=net*item.quantity;length=Math.max(length,dims[0]);width=Math.max(width,dims[1]);height+=dims[2]*item.quantity;
   }
-  return { weightLbs: BOX_BASE_WEIGHT_LBS + totalBags * LBS_PER_BAG, packagingCode: "02", dimensions: null };
+  height=Math.ceil(height);
+  if (!length || weight>150 || height>108 || Math.max(length,height)+2*(Math.min(length,height)+width)>165) throw Error("This order needs multiple packages. Please contact us for a shipping quote.");
+  return {weightLbs:Math.ceil(weight*1000)/1000,packagingCode:"02",dimensions:{length:String(length),width:String(width),height:String(height)}};
 }
 
-// Computes real UPS rate tiers for a given destination (either the fixed
-// REFERENCE_SHIP_TO above, for the static picker shown on Stripe's page, or
-// a real customer address if a caller ever has one).
-//
 // Deliberately has NO flat-rate fallback: a customer must never be shown or
 // charged a shipping price that wasn't actually pulled from UPS. If UPS is
 // unreachable, misconfigured, or returns nothing, this throws — callers are
@@ -143,4 +121,4 @@ async function getShippingOptions(shipTo, packageDetails, shippingConfig, qualif
   .sort((a, b) => a.amountCents - b.amountCents);
 }
 
-module.exports = { LBS_PER_BAG, BOX_BASE_WEIGHT_LBS, FLAT_GROUND_RATE_CENTS, MAX_SHIPPING_OPTIONS, UPS_SERVICE_NAMES, REFERENCE_SHIP_TO, getPackageDetails, getShippingOptions };
+module.exports = { MAX_SHIPPING_OPTIONS, UPS_SERVICE_NAMES, netWeightLbs, getPackageDetails, getShippingOptions };
