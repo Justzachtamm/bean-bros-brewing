@@ -67,7 +67,7 @@ function recommendedProducts(catalog,cart){
  const recurring=cart.some(i=>i.isSubscription),ids=new Set(cart.map(i=>i.product.id));
  const available=catalog.filter(p=>p.active&&p.stock>0&&!ids.has(p.id)&&(!recurring||coffee(p)));
  const description=p=>[p.name,p.tastingNotes,p.bio].join(' ').toLowerCase();
- const groups=[available.filter(coffee),available.filter(p=>!coffee(p)&&/reishi/.test(description(p))),available.filter(p=>!coffee(p)&&/lion[’']?s?\s*mane/.test(description(p))),available.filter(p=>p.category==='merch')];
+ const groups=[available.filter(coffee),available.filter(p=>!coffee(p)&&/reishi/.test(description(p))).sort((a,b)=>Number(/reishi/i.test(b.name))-Number(/reishi/i.test(a.name))),available.filter(p=>!coffee(p)&&/lion[’']?s?\s*mane/.test(description(p))),available.filter(p=>p.category==='merch')];
  const selected=[];for(const group of groups){const p=group.find(p=>!selected.some(x=>x.id===p.id));if(p)selected.push(p)}
  for(const p of groups[0])if(selected.length<4&&!selected.some(x=>x.id===p.id))selected.push(p);
  return selected;
