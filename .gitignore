@@ -6,3 +6,11 @@ node_modules/
 deno.lock
 
 /dist/
+
+# Local credentials and generated creative exports are not website source.
+.env.*
+!.env.example
+/Codex Image *.png
+/Transparent-Logos/
+/transparent logo/
+/advertisements/

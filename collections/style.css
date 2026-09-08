@@ -8,3 +8,6 @@
 
 /* Transparent, consistently framed product images. */
 .cutout-image{width:100%;height:100%;display:grid;place-items:center;background:transparent}.cutout-image img{display:block;width:100%;height:100%;object-fit:contain;padding:12px}.product-image{background:#e9e9de}.bundle-image img{padding:6px}.herb-hero{background:#e6e8dd}.herb-hero>img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;padding:20px 30px 45px}.hero-art-caption{background:#203b2b;color:#f5f1e8}#package-view>.cutout-image{aspect-ratio:9/11;background:#e9e9de}#package-view>.bundle-image{aspect-ratio:15/11}.product-image .cutout-image{position:absolute;inset:0}
+
+.mug-render{width:100%;height:100%;background:#f7f4ef;display:flex;align-items:center;justify-content:center}.mug-render img{width:100%;height:100%;object-fit:contain}#detail-art>.mug-render{aspect-ratio:1;height:auto}
+#product-form [hidden]{display:none!important}

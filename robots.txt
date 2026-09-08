@@ -10,6 +10,7 @@ Allow: /apple-touch-icon.png
 Allow: /logo-512.png
 Allow: /og-image.png
 
+Allow: /.netlify/functions/image
 Disallow: /.netlify/
 Disallow: /api/
 

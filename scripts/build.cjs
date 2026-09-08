@@ -4,8 +4,7 @@ const crypto = require('node:crypto');
 const root = path.resolve(__dirname, '..');
 const out = path.join(root, 'dist');
 // Explicit publish allowlist: backend code, credentials and reports never enter dist.
-const staticFiles = ['accessibility.html','privacy.html','shipping-returns.html','terms.html',
-  'robots.txt','sitemap.xml','site.webmanifest','_redirects','assets/legal/legal.css',
+const staticFiles = ['assets/seo-catalog.css','assets/tracking.css','assets/tracking.js','404.html','robots.txt','sitemap.xml','site.webmanifest','_redirects','assets/legal/legal.css',
   'logo-512.png','logo-mark.svg','logo-white.png','icons.svg','og-image.png','apple-touch-icon.png',
   'favicon.ico','favicon.svg','favicon-48x48.png','favicon-96x96.png','favicon-144x144.png','favicon-192x192.png','favicon-512x512.png'];
 fs.rmSync(out, {recursive:true,force:true});
@@ -15,7 +14,7 @@ function copy(source, target=source) {
   fs.mkdirSync(path.dirname(dest), {recursive:true});
   fs.copyFileSync(path.join(root, source),dest);
 }
-const pages = ['index.html','admin.html','account.html'];
+const pages = ['index.html','admin.html','account.html','accessibility.html','privacy.html','shipping-returns.html','terms.html'];
 for(const page of pages) {
  let html = fs.readFileSync(path.join(root,page),'utf8');
  const assets = [...html.matchAll(/(?:src|href)="\/(assets\/[A-Za-z0-9_.-]+\.(?:js|css))"/g)].map(match=>match[1]);
@@ -38,3 +37,15 @@ for(const file of staticFiles)copy(file);
 for(const file of ['index.html','style.css','app.js','catalog.js'])copy('collections/'+file);
 for(const dir of ['assets','source/images'])fs.cpSync(path.join(root,'collections',dir),path.join(out,'collections',dir),{recursive:true});
 console.log('Built customer and admin pages into dist; server files excluded.');
+
+// Only these public platform identifiers may enter browser configuration.
+const tracking = require('./tracking-config.cjs').fromEnv(process.env);
+fs.writeFileSync(path.join(out,'tracking-config.js'), 'window.BeanBrosTrackingConfig = '+JSON.stringify(tracking)+';\n');
+const verification = [['GOOGLE_SITE_VERIFICATION','google-site-verification'],['META_DOMAIN_VERIFICATION','facebook-domain-verification'],['TIKTOK_DOMAIN_VERIFICATION','tiktok-developers-site-verification']];
+let homepage = fs.readFileSync(path.join(out,'index.html'),'utf8');
+for(const [key,name] of verification) {
+ const value = process.env[key] || '';
+ if(value && !/^[A-Za-z0-9_-]+$/.test(value))throw Error('Invalid '+key);
+ if(value)homepage=homepage.replace('</head>',`<meta name="${name}" content="${value}"></head>`);
+}
+fs.writeFileSync(path.join(out,'index.html'),homepage);

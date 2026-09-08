@@ -39,7 +39,7 @@ exports.handler = async (event) => {
   }
 
   try {
-    const { items, successUrl, cancelUrl, shipTo, action, shippingService, shippingAmount } = JSON.parse(event.body || "{}");
+    const { items, successUrl, cancelUrl, shipTo, action, shippingService, shippingAmount, measurement } = JSON.parse(event.body || "{}");
     if (!Array.isArray(items) || items.length === 0 || items.length > 50) {
       return { statusCode: 400, headers: baseHeaders, body: JSON.stringify({ error: "No items in cart" }) };
     }
@@ -254,7 +254,7 @@ exports.handler = async (event) => {
     const sessionConfig = {
       mode,
       ...(taxEnabled ? { automatic_tax: { enabled: true } } : {}),
-      metadata: { receipt_token_hash: crypto.createHash("sha256").update(receiptToken).digest("hex"), fulfillment_version: "2", quoted_shipping: JSON.stringify(destination), shipping_package: JSON.stringify(packageDetails) },
+      metadata: { measurement: JSON.stringify(require("./lib/conversions").context(measurement)), receipt_token_hash: crypto.createHash("sha256").update(receiptToken).digest("hex"), fulfillment_version: "2", quoted_shipping: JSON.stringify(destination), shipping_package: JSON.stringify(packageDetails) },
       line_items: sessionLineItems,
       success_url: checkoutSuccessUrl(successUrl),
       cancel_url: cancelUrl,

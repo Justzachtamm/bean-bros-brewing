@@ -122,6 +122,17 @@ exports.handler = async (event) => {
       }
     }
 
+    // Only signed, paid Checkout events enqueue first-purchase measurement.
+    // No browser-return dependency and no duplicate renewal/acquisition events.
+    if (["checkout.session.completed", "checkout.session.async_payment_succeeded"].includes(stripeEvent.type)) {
+      const paidSession = stripeEvent.data.object;
+      if (paidSession.livemode === true && paidSession.payment_status === 'paid' && paidSession.metadata?.measurement) {
+        const lines = await stripe.checkout.sessions.listLineItems(paidSession.id, {limit:100,expand:['data.price.product']});
+        if(lines.has_more)throw Error('Too many measurement lines');
+        await require('./lib/conversions').enqueue(paidSession,lines.data,stripeEvent);
+      }
+    }
+
     if (["refund.created", "refund.updated", "refund.failed"].includes(stripeEvent.type)) {
       const r = await stripe.refunds.retrieve(stripeEvent.data.object.id);
       await businessRecords.save("refund", r.id, { amount: r.amount, currency: r.currency, status: r.status, livemode: r.livemode, paymentIntent: typeof r.payment_intent === "string" ? r.payment_intent : r.payment_intent?.id, date: new Date(r.created * 1000).toISOString(), taxAdjustment: null });

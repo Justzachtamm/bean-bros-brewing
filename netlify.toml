@@ -78,7 +78,7 @@
     #   object-src   'none'           — no Flash/applet vector
     #   base-uri     'self'           — a script cannot rewrite <base> to
     #                                   redirect every relative URL elsewhere
-    Content-Security-Policy = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob: https://images.unsplash.com; media-src 'self' https://assets.mixkit.co https://videos.pexels.com; connect-src 'self' https://api.stripe.com; form-action 'self' https://checkout.stripe.com; frame-ancestors 'none'; base-uri 'self'; object-src 'none'; upgrade-insecure-requests"
+    Content-Security-Policy = "default-src 'self'; script-src 'self' https://www.googletagmanager.com https://connect.facebook.net https://analytics.tiktok.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob: https://images.unsplash.com https://www.facebook.com https://*.google-analytics.com https://analytics.tiktok.com; media-src 'self' https://assets.mixkit.co https://videos.pexels.com; connect-src 'self' https://api.stripe.com https://*.google-analytics.com https://www.googletagmanager.com https://www.facebook.com https://analytics.tiktok.com https://*.tiktok.com; form-action 'self' https://checkout.stripe.com; frame-ancestors 'none'; base-uri 'self'; object-src 'none'; upgrade-insecure-requests"
 
 # Assets revalidate on every load.
 #
@@ -131,4 +131,7 @@
   schedule = "0 * * * *"
 
 [functions."customer-email-dispatch"]
+  schedule = "*/5 * * * *"
+
+[functions."measurement-dispatch"]
   schedule = "*/5 * * * *"
