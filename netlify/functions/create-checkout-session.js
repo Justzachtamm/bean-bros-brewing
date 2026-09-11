@@ -39,7 +39,7 @@ exports.handler = async (event) => {
   }
 
   try {
-    const { items, successUrl, cancelUrl, shipTo, action, shippingService, shippingAmount, measurement } = JSON.parse(event.body || "{}");
+    const { items, successUrl, cancelUrl, shipTo, action, shippingService, shippingAmount, measurement, promoCode } = JSON.parse(event.body || "{}");
     if (!Array.isArray(items) || items.length === 0 || items.length > 50) {
       return { statusCode: 400, headers: baseHeaders, body: JSON.stringify({ error: "No items in cart" }) };
     }
@@ -250,9 +250,19 @@ exports.handler = async (event) => {
       }));
     }
 
+    let promotionId;
+    if (promoCode) {
+      if (hasSubscription) throw Error('Promo codes apply to one-time purchases. Subscriptions already receive 10% off.');
+      if (typeof promoCode !== 'string' || !/^[A-Za-z0-9]{3,30}$/.test(promoCode.trim())) throw Error('Enter a valid promo code.');
+      const matches = await stripe.promotionCodes.list({code:promoCode.trim(),active:true,limit:1});
+      const promotion = matches.data[0];
+      if (!promotion || !promotion.coupon.valid || (promotion.expires_at && promotion.expires_at <= Date.now()/1000) || (promotion.max_redemptions && promotion.times_redeemed >= promotion.max_redemptions)) throw Error('This promo code is invalid, expired, or fully redeemed.');
+      promotionId = promotion.id;
+    }
     const receiptToken = crypto.randomBytes(32).toString("hex");
     const sessionConfig = {
       mode,
+      ...(promotionId ? {discounts:[{promotion_code:promotionId}]} : {}),
       ...(taxEnabled ? { automatic_tax: { enabled: true } } : {}),
       metadata: { measurement: JSON.stringify(require("./lib/conversions").context(measurement)), receipt_token_hash: crypto.createHash("sha256").update(receiptToken).digest("hex"), fulfillment_version: "2", quoted_shipping: JSON.stringify(destination), shipping_package: JSON.stringify(packageDetails) },
       line_items: sessionLineItems,
