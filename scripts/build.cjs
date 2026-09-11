@@ -35,6 +35,8 @@ for(const dir of ['assets/brand','assets/products']) {
 for(const file of staticFiles)copy(file);
 // Publish only the reviewed collection page and its required public images.
 for(const file of ['index.html','style.css','app.js','catalog.js'])copy('collections/'+file);
+const accessoryScript = 'assets/app-'+crypto.createHash('sha256').update(fs.readFileSync(path.join(root,'assets/accessories.js'))).digest('hex').slice(0,16)+'.js';
+const collectionPage=path.join(out,'collections/index.html');fs.writeFileSync(collectionPage,fs.readFileSync(collectionPage,'utf8').replace('/assets/accessories.js','/'+accessoryScript));
 for(const dir of ['assets','source/images'])fs.cpSync(path.join(root,'collections',dir),path.join(out,'collections',dir),{recursive:true});
 console.log('Built customer and admin pages into dist; server files excluded.');
 

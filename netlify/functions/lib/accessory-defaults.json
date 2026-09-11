@@ -1,0 +1,99 @@
+[
+  {
+    "id": "travel-mug",
+    "name": "Bean Bros Travel Mug",
+    "subtitle": "Black finish \u00b7 Silver logo \u00b7 Clear lid",
+    "images": [
+      "/collections/assets/beanbros-travel-mug.png"
+    ],
+    "description": "A first look at our black handled travel mug with a silver Bean Bros logo and clear lid. Coming soon. Final details and launch date will be announced.",
+    "category": "accessories",
+    "type": "Mugs",
+    "price": null,
+    "variants": [
+      "Coming soon"
+    ],
+    "concept": true,
+    "comingSoon": true,
+    "productRender": true,
+    "active": true,
+    "imageKey": null
+  },
+  {
+    "id": "speckled-mug",
+    "name": "Bean Bros Speckled Mug",
+    "subtitle": "Black speckle \u00b7 Sand-colored base \u00b7 Cream logo",
+    "images": [
+      "/collections/assets/beanbros-speckled-mug.png"
+    ],
+    "description": "Meet your next everyday mug: a black speckled finish, sand-colored base, and cream Bean Bros logo. Coming soon. Final details and launch date will be announced.",
+    "category": "accessories",
+    "type": "Mugs",
+    "price": null,
+    "variants": [
+      "Coming soon"
+    ],
+    "concept": true,
+    "comingSoon": true,
+    "productRender": true,
+    "active": true,
+    "imageKey": null
+  },
+  {
+    "id": "ceramic",
+    "name": "The Ritual Mug",
+    "category": "accessories",
+    "type": "Mugs",
+    "subtitle": "Mugs",
+    "description": "A sculptural 12 oz ceramic mug with a warm ivory glaze, textured foot, and a subtle BB mark. Custom gift box concept.",
+    "price": null,
+    "variants": [
+      "Ivory \u00b7 12 oz"
+    ],
+    "concept": true,
+    "col": 0,
+    "images": [
+      "/collections/assets/accessories.png"
+    ],
+    "active": true,
+    "imageKey": null
+  },
+  {
+    "id": "glass",
+    "name": "Double-Wall Glass Mug",
+    "category": "accessories",
+    "type": "Mugs",
+    "subtitle": "Mugs",
+    "description": "A 12 oz double-wall glass mug with a delicate handle and small BB mark. Custom protective packaging concept.",
+    "price": null,
+    "variants": [
+      "Clear \u00b7 12 oz"
+    ],
+    "concept": true,
+    "col": 1,
+    "images": [
+      "/collections/assets/accessories.png"
+    ],
+    "active": true,
+    "imageKey": null
+  },
+  {
+    "id": "dripper",
+    "name": "Stainless Pour-Over Dripper",
+    "category": "accessories",
+    "type": "Brewing tools",
+    "subtitle": "Brewing tools",
+    "description": "The pour-over top only: stainless steel mesh cone and circular base with a laser-engraved BB mark. Custom branded sleeve concept.",
+    "price": null,
+    "variants": [
+      "Stainless steel"
+    ],
+    "concept": true,
+    "col": 2,
+    "images": [
+      "/collections/assets/accessories.png"
+    ],
+    "active": true,
+    "imageKey": null
+  }
+]
