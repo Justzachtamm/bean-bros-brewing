@@ -39,11 +39,11 @@ exports.handler = async (event) => {
   }
 
   try {
-    const { items, successUrl, cancelUrl, shipTo, action, shippingService, shippingAmount, measurement, promoCode, embedded, paymentFirst } = JSON.parse(event.body || "{}");
+    const { items, successUrl, cancelUrl, shipTo, action, shippingService, shippingAmount, measurement, promoCode, embedded, paymentFirst, emailConsent } = JSON.parse(event.body || "{}");
     if (!Array.isArray(items) || items.length === 0 || items.length > 50) {
       return { statusCode: 400, headers: baseHeaders, body: JSON.stringify({ error: "No items in cart" }) };
     }
-    if (action !== "quote" && (!isAllowedRedirect(successUrl) || !isAllowedRedirect(cancelUrl))) {
+    if (!["quote","wallet-start","wallet-quote"].includes(action) && (!isAllowedRedirect(successUrl) || !isAllowedRedirect(cancelUrl))) {
       return { statusCode: 400, headers: baseHeaders, body: JSON.stringify({ error: "Invalid redirect URL" }) };
     }
 
@@ -75,7 +75,8 @@ exports.handler = async (event) => {
       }
       const isSubscription = !!item.isSubscription;
       const botanical = ['tea','herbs'].includes(product.category);
-      if(botanical && isSubscription)throw new Error('Herbs and teas are available as one-time purchases.');
+      const mushroomSubscription = /^(?:neuroshroom|lion[’']?s? mane(?: mushroom(?: powder)?)?|reishi(?: mushroom)?|thrive mode)$/i.test(product.name.trim());
+      if(botanical && isSubscription && !mushroomSubscription)throw new Error('Herbs and teas are available as one-time purchases.');
       // Never take the client's spelling on trust. An unrecognised cadence
       // used to fall through to a silent 4-week default, so a customer could
       // be billed on a schedule they never chose; reject it loudly instead.
@@ -90,7 +91,7 @@ exports.handler = async (event) => {
         }
         frequency = normalizeFrequency(item.frequency);
       }
-      const price = isSubscription
+      const price = isSubscription && !botanical
         ? Math.round(product.price * (1 - SUBSCRIBE_DISCOUNT) * 100) / 100
         : product.price;
       const grindLabel = botanical ? product.weight || 'As packaged' : grindLabels[item.grind] || Object.values(grindLabels).find((label) => label === item.grindLabel);
@@ -190,12 +191,19 @@ exports.handler = async (event) => {
       }
     }
 
-    const destination = shippingAddress(shipTo);
+    if (action === 'wallet-start') return {statusCode:200,headers:baseHeaders,body:JSON.stringify({amount:Math.round(subtotal*100),currency:'usd',recurring:hasSubscription,frequency:hasSubscription?items_[0].frequency:null,items:items_.map(i=>({name:i.name,amount:Math.round(i.price*100)*i.quantity}))})};
+    const destination = shippingAddress(shipTo,{partial:action==='wallet-quote'});
+    if (action !== "wallet-quote") await require("./lib/ups").validateAddress(destination);
     const packageDetails = getPackageDetails(items_, shippingConfig);
     let options = await getShippingOptions(destination, packageDetails, shippingConfig, qualifiesForFreeShipping);
     if (hasSubscription) options = options.filter(o => o.serviceCode === "03");
     if (!options.length) throw Error("No shipping services are available for this shipment.");
-    if (action === "quote") return { statusCode:200, headers:baseHeaders, body:JSON.stringify({options, recurring:hasSubscription}) };
+    if (action === "quote") return { statusCode:200, headers:baseHeaders, body:JSON.stringify({options, recurring:hasSubscription,addressVerified:true}) };
+    if (action === 'wallet-quote') {
+      const selected=options.find(o=>o.serviceCode===shippingService)||options[0];
+      const totals=await require('./lib/wallet-quote').walletQuote(stripe,{items:items_,destination,selected,promoCode,taxEnabled,hasSubscription});
+      return {statusCode:200,headers:baseHeaders,body:JSON.stringify({...totals,options,selectedService:selected.serviceCode,recurring:hasSubscription})};
+    }
     const selected = options.find(o => o.serviceCode === shippingService);
     if (!selected || selected.amountCents !== shippingAmount) return {statusCode:409,headers:baseHeaders,body:JSON.stringify({error:"Shipping rates changed. Please get updated rates and choose a service."})};
 
@@ -268,7 +276,7 @@ exports.handler = async (event) => {
       mode,
       ...(promotionId ? {discounts:[{promotion_code:promotionId}]} : {}),
       ...(taxEnabled ? { automatic_tax: { enabled: true } } : {}),
-      metadata: { measurement: JSON.stringify(require("./lib/conversions").context(measurement)), receipt_token_hash: crypto.createHash("sha256").update(receiptToken).digest("hex"), fulfillment_version: "2", quoted_shipping: JSON.stringify(destination), shipping_package: JSON.stringify(packageDetails) },
+      metadata: { email_consent: JSON.stringify(require('./lib/email-consent').normalize(emailConsent)), measurement: JSON.stringify(require("./lib/conversions").context(measurement)), receipt_token_hash: crypto.createHash("sha256").update(receiptToken).digest("hex"), fulfillment_version: "2", quoted_shipping: JSON.stringify(destination), shipping_package: JSON.stringify(packageDetails) },
       line_items: sessionLineItems,
       ...((embedded === true || paymentFirst === true)
         ? {ui_mode:paymentFirst === true ? 'custom' : 'embedded', return_url:checkoutSuccessUrl(successUrl)}
@@ -324,6 +332,6 @@ exports.handler = async (event) => {
     };
   } catch (err) {
     console.error("Stripe Checkout error:", err.message);
-    return { statusCode: 400, headers: baseHeaders, body: JSON.stringify({ error: err.message }) };
+    return { statusCode: [422,503].includes(err.status) ? err.status : 400, headers: baseHeaders, body: JSON.stringify({ error: err.message, ...(err.candidates ? {candidates:err.candidates} : {}) }) };
   }
 };

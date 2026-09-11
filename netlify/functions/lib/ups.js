@@ -1,14 +1,4 @@
-// UPS REST API client — OAuth2 client-credentials + Rating (Shop) + Shipping.
-//
-// Built against UPS's published OpenAPI specs (OAuthClientCredentials.yaml,
-// Rating.yaml, Shipping.yaml — github.com/UPS-API/api-documentation). This
-// has NOT been tested against a live UPS account: as of this writing there
-// are no UPS_CLIENT_ID/UPS_CLIENT_SECRET credentials configured. Everything
-// fails closed with a clear "UPS is not configured" error until they exist.
-//
-// Defaults to UPS's sandbox/testing host (wwwcie.ups.com). Set
-// UPS_ENV=production to point at the real onlinetools.ups.com host once
-// you've validated against sandbox.
+// UPS REST API client. See UPS-API/api-documentation for the published schemas.
 
 const API_VERSION = "v2409";
 
@@ -57,11 +47,39 @@ async function getAccessToken() {
   return cachedToken;
 }
 
+// Street validation is separate from rating: a quoted rate is not proof of a valid address.
+async function validateAddress(destination) {
+  const token = await getAccessToken();
+  const [zip, extension] = destination.zip.split('-');
+  const response = await fetch(`${baseUrl()}/api/addressvalidation/v2/3?maximumcandidatelistsize=3`, {
+    method: 'POST',
+    headers: {Authorization: `Bearer ${token}`, 'Content-Type': 'application/json'},
+    signal: AbortSignal.timeout(12000),
+    body: JSON.stringify({XAVRequest: {AddressKeyFormat: {
+      AddressLine: [destination.address, destination.address2].filter(Boolean),
+      PoliticalDivision2: destination.city, PoliticalDivision1: destination.state,
+      PostcodePrimaryLow: zip, ...(extension ? {PostcodeExtendedLow: extension} : {}), CountryCode: 'US'
+    }}})
+  });
+  if (!response.ok) throw Object.assign(Error('UPS address verification is temporarily unavailable. Please try again.'), {status:503});
+  return addressValidationResult(await response.json(), destination);
+}
+function addressValidationResult(data, destination) {
+  const result = data.XAVResponse;
+  if (result?.Response?.ResponseStatus?.Code !== '1') throw Object.assign(Error('UPS could not verify this address. Please try again.'), {status:503});
+  if (Object.hasOwn(result, 'ValidAddressIndicator') && !Object.hasOwn(result, 'AmbiguousAddressIndicator') && !Object.hasOwn(result, 'NoCandidatesIndicator')) return {verified:true};
+  const candidates = (Array.isArray(result.Candidate) ? result.Candidate : []).slice(0,3).map(candidate => {
+    const a = candidate.AddressKeyFormat || {}, lines = Array.isArray(a.AddressLine) ? a.AddressLine : [a.AddressLine];
+    return {...destination, address:lines[0] || '', address2:lines.slice(1).join(' '), city:a.PoliticalDivision2 || '', state:a.PoliticalDivision1 || '', zip:[a.PostcodePrimaryLow,a.PostcodeExtendedLow].filter(Boolean).join('-'), country:'US'};
+  }).filter(a=>a.address && a.city && a.state && a.zip);
+  throw Object.assign(Error(candidates.length ? 'UPS suggests a different address. Choose a suggestion or edit your delivery details.' : 'UPS could not find this delivery address. Check the street, apartment or suite, city and ZIP code.'), {status:422, candidates});
+}
+
 function buildAddress({ name, address, address2, city, state, zip, country = "US", residential = false }) {
   return {
-    Name: name,
+    ...(name ? {Name: name} : {}),
     Address: {
-      AddressLine: [address, address2].filter(Boolean),
+      ...((address || address2) ? {AddressLine:[address, address2].filter(Boolean)} : {}),
       City: city,
       StateProvinceCode: state,
       PostalCode: zip,
@@ -287,4 +305,4 @@ async function voidShipment({ shipmentId, trackingNumber }) {
   return { ok: true, description: summary?.Description || status?.Description || "Voided" };
 }
 
-module.exports = { isConfigured, getAccessToken, getRates, createShipment, voidShipment };
+module.exports = { validateAddress, addressValidationResult, isConfigured, getAccessToken, getRates, createShipment, voidShipment };

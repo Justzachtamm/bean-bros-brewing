@@ -36,7 +36,7 @@
  // Only product IDs, names, quantities and prices; no account or shipping fields.
  function track(name,lines){
   if(!['view_item','add_to_cart','begin_checkout'].includes(name)||!Array.isArray(lines))return;
-  const items=lines.map(i=>({item_id:String(i.product.id),item_name:String(i.product.name).trim(),price:Math.round(i.product.price*(i.isSubscription?.9:1)*100)/100,quantity:i.quantity||1}));
+  const items=lines.map(i=>({item_id:String(i.product.id),item_name:String(i.product.name).trim(),price:Math.round(i.product.price*(i.isSubscription&&(i.product.category||'coffee')==='coffee'?.9:1)*100)/100,quantity:i.quantity||1}));
   const value=Math.round(items.reduce((n,i)=>n+i.price*i.quantity,0)*100)/100;
   if(consent.analytics&&started.google)window.gtag('event',name,{currency:'USD',value,items});
   const events={view_item:'ViewContent',add_to_cart:'AddToCart',begin_checkout:'InitiateCheckout'};
@@ -51,19 +51,19 @@
   return c;
  }
  window.BeanBrosAnalytics={checkoutContext,track:(...args)=>{try{track(...args)}catch{/* Tracking must never interrupt shopping. */}}};
- const dialog=document.createElement('dialog');dialog.className='cookie-dialog';dialog.setAttribute('aria-labelledby','cookie-title');
+ const dialog=document.createElement('section');dialog.className='cookie-dialog';dialog.hidden=true;dialog.setAttribute('role','region');dialog.setAttribute('aria-labelledby','cookie-title');
  dialog.innerHTML='<h2 id="cookie-title">Your cookie choices</h2><p>Essential storage keeps your bag and account working. Optional cookies help us understand visits and measure advertising.</p><label><input type="checkbox" id="cookie-analytics"> Analytics (Google Analytics)</label><label><input type="checkbox" id="cookie-marketing"> Advertising (Meta and TikTok)</label><p><a href="/privacy.html#cookies">Read our privacy policy</a></p><div class="cookie-actions"><button type="button" data-choice="reject">Reject optional</button><button type="button" data-choice="save">Save choices</button><button type="button" data-choice="all">Accept all</button></div>';
  document.body.append(dialog);
  const analytics=dialog.querySelector('#cookie-analytics'),marketing=dialog.querySelector('#cookie-marketing');
  analytics.disabled=!config.google;marketing.disabled=!(config.meta||config.tiktok)||!!navigator.globalPrivacyControl;
- function open(){analytics.checked=consent.analytics;marketing.checked=consent.marketing;dialog.showModal()}
+ function open(){analytics.checked=consent.analytics;marketing.checked=consent.marketing;dialog.hidden=false}
  const button=document.createElement('button');button.type='button';button.className='cookie-settings';button.textContent='Cookie settings';button.onclick=open;(document.querySelector('footer')||document.body).append(button);
  dialog.querySelectorAll('[data-choice]').forEach(b=>b.onclick=()=>{
   const previous={...consent};consent={analytics:!!config.google&&(b.dataset.choice==='all'||b.dataset.choice==='save'&&analytics.checked),marketing:!!(config.meta||config.tiktok)&&!navigator.globalPrivacyControl&&(b.dataset.choice==='all'||b.dataset.choice==='save'&&marketing.checked)};
   try{localStorage.setItem(key,JSON.stringify({...consent,at:Date.now()}))}catch{}
   if(previous.analytics&&!consent.analytics&&window.gtag)window.gtag('consent','update',{analytics_storage:'denied'});
   if(previous.marketing&&!consent.marketing){window.fbq?.('consent','revoke');window.ttq?.revokeConsent()}
-  dialog.close();
+  dialog.hidden=true;
   // Remove loaded SDKs after withdrawal; never reload if choices cannot persist.
   if(previous.analytics&&!consent.analytics||previous.marketing&&!consent.marketing){
    for(const cookie of document.cookie.split(';')){const name=cookie.split('=')[0].trim();if(/^(_ga|_gid|_gat|_fbp|_fbc|_ttp|ttcsid)/.test(name)){for(const domain of ['',location.hostname,'.'+location.hostname])document.cookie=name+'=; Max-Age=0; Path=/'+(domain?'; Domain='+domain:'')}}

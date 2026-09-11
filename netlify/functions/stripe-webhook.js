@@ -83,6 +83,7 @@ exports.handler = async (event) => {
   try {
     if (["checkout.session.completed", "checkout.session.async_payment_succeeded"].includes(stripeEvent.type)) {
       const session = stripeEvent.data.object;
+      await require("./lib/email-consent").recordPaidConsent(session);
       if (session.mode === "payment" && ["paid", "no_payment_required"].includes(session.payment_status)) {
         // One-time orders are recorded here — this event fires once, exactly
         // when the payment succeeds.
