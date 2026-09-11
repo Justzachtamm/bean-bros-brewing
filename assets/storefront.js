@@ -59,7 +59,7 @@ $('checkout-live').onclick=async()=>{
  finally{checkingOut=false;renderBag();$('checkout-live').textContent='Checkout · review total'}
 };
 $('begin-checkout').onclick=async()=>{
- renderBag();if($('begin-checkout').disabled)return;if(bag.some(i=>i.isSubscription)&&!token()){persist();account();return}closeDialog($('cart-dialog'));$('delivery-warning').textContent='';openDialog('delivery-dialog');$('manual-checkout').hidden=true;$('wallet-primary').after($('checkout-email-options'));$('wallet-retry').hidden=true;$('wallet-note').textContent='Loading Apple Pay and Google Pay…';$('express-error').textContent='';const revision=paymentRevision;$('payment-placeholder').hidden=false;$('payment-placeholder').textContent='Loading secure card fields…';
+ renderBag();if($('begin-checkout').disabled)return;if(bag.some(i=>i.isSubscription)&&!token()){persist();account();return}closeDialog($('cart-dialog'));$('delivery-warning').textContent='';openDialog('delivery-dialog');showManualCheckout();$('wallet-retry').hidden=true;$('wallet-note').textContent='Loading Apple Pay and Google Pay…';$('express-error').textContent='';const revision=paymentRevision;$('payment-placeholder').hidden=false;$('payment-placeholder').textContent='Loading secure card fields…';
  try{const [config,initial]=await Promise.all([api('payment-config'),api('create-checkout-session',{action:'wallet-start',items:checkoutItems()})]);if(revision!==paymentRevision||!$('delivery-dialog').open)return;if(await window.BeanBrosPayment.start(config.publishableKey,{wallets:false,...initial,onAddress:syncDeliveryAutocomplete})){ $('payment-placeholder').hidden=true;
    await window.BeanBrosExpress.start(config.publishableKey,{initial,
     request:body=>api('create-checkout-session',{...body,emailConsent:checkoutEmailConsent(),items:checkoutItems(),measurement:globalThis.window?.BeanBrosAnalytics?.checkoutContext()}),
@@ -196,7 +196,6 @@ $('promo-code').addEventListener('input',()=>{resetPayment();renderBag()});
 $('checkout-retry').onclick=()=>{autoCheckoutKey='';refreshCheckout()};
 window.addEventListener('bean-bros-billing-change',()=>{autoEditVersion++;autoCheckoutKey='';resetPayment();renderBag();scheduleCheckout()});
 
-$('manual-checkout-toggle').onclick=()=>{if(checkingOut)return;showManualCheckout();scheduleCheckout();$('payment-email').focus()};
 
 function checkoutEmailConsent(){return {subscriptionNews:$('email-subscription-news').checked===true,promotions:$('email-promotions').checked===true}}
 for(const id of ['email-subscription-news','email-promotions'])$(id).addEventListener('change',()=>{autoEditVersion++;autoCheckoutKey='';resetPayment();renderBag();scheduleCheckout()});
