@@ -39,7 +39,7 @@ exports.handler = async (event) => {
   }
 
   try {
-    const { items, successUrl, cancelUrl, shipTo, action, shippingService, shippingAmount, measurement, promoCode } = JSON.parse(event.body || "{}");
+    const { items, successUrl, cancelUrl, shipTo, action, shippingService, shippingAmount, measurement, promoCode, embedded, paymentFirst } = JSON.parse(event.body || "{}");
     if (!Array.isArray(items) || items.length === 0 || items.length > 50) {
       return { statusCode: 400, headers: baseHeaders, body: JSON.stringify({ error: "No items in cart" }) };
     }
@@ -47,6 +47,10 @@ exports.handler = async (event) => {
       return { statusCode: 400, headers: baseHeaders, body: JSON.stringify({ error: "Invalid redirect URL" }) };
     }
 
+    const publishableKey = process.env.STRIPE_PUBLISHABLE_KEY || '';
+    if ((embedded === true || paymentFirst === true) && action !== 'quote' && (!/^pk_(test|live)_[A-Za-z0-9]+$/.test(publishableKey) || publishableKey.split('_')[1] !== secretKey.split('_')[1])) {
+      return {statusCode:503,headers:baseHeaders,body:JSON.stringify({error:'Secure payment is not configured yet. Please contact the store.'})};
+    }
     const needsAccount = items.some((item) => item?.isSubscription) || !!(event.headers?.authorization || event.headers?.Authorization);
     const account = needsAccount ? await requireSession(event, baseHeaders) : null;
     if (account?.error) return account.error;
@@ -266,16 +270,19 @@ exports.handler = async (event) => {
       ...(taxEnabled ? { automatic_tax: { enabled: true } } : {}),
       metadata: { measurement: JSON.stringify(require("./lib/conversions").context(measurement)), receipt_token_hash: crypto.createHash("sha256").update(receiptToken).digest("hex"), fulfillment_version: "2", quoted_shipping: JSON.stringify(destination), shipping_package: JSON.stringify(packageDetails) },
       line_items: sessionLineItems,
-      success_url: checkoutSuccessUrl(successUrl),
-      cancel_url: cancelUrl,
+      ...((embedded === true || paymentFirst === true)
+        ? {ui_mode:paymentFirst === true ? 'custom' : 'embedded', return_url:checkoutSuccessUrl(successUrl)}
+        : {success_url:checkoutSuccessUrl(successUrl), cancel_url:cancelUrl}),
       billing_address_collection: "required",
       phone_number_collection: { enabled: true },
       payment_method_types: ["card"],
     };
     // The shipping address is fixed to the address used for the quote. The
     // customer can return to the bag to edit it and request a fresh quote.
-    sessionConfig.custom_text = {submit:{message:`Deliver to: ${destination.name}, ${destination.address}${destination.address2 ? ', '+destination.address2 : ''}, ${destination.city}, ${destination.state} ${destination.zip}. To change delivery details, return to your bag.`}};
-    if (mode === "payment") sessionConfig.payment_intent_data = {shipping:stripeShipping(destination)};
+    sessionConfig.custom_text = {submit:{message:`Deliver to: ${destination.name}, ${destination.address}${destination.address2 ? ', '+destination.address2 : ''}, ${destination.city}, ${destination.state} ${destination.zip}. To change delivery details, use Edit delivery before paying.`}};
+    // Automatic tax rejects payment_intent_data.shipping. The quoted address
+    // is saved on the Customer below for tax and in metadata for fulfillment.
+    if (mode === "payment" && !taxEnabled) sessionConfig.payment_intent_data = {shipping:stripeShipping(destination)};
     if (mode === "payment") {
       // Stripe rejects shipping_options entirely in subscription mode — a
       // per-checkout shipping-speed picker doesn't apply to a recurring
@@ -304,11 +311,16 @@ exports.handler = async (event) => {
     if (mode === "subscription") {
       sessionConfig.subscription_data = { metadata: { fulfillment_version: "2", shipping_service: "03", shipping_address:JSON.stringify(destination), shipping_package:JSON.stringify(packageDetails) } };
     }
-    const session = await stripe.checkout.sessions.create(sessionConfig);
+    // Pin the custom Checkout API separately; keep existing webhook/account APIs stable.
+    if (paymentFirst === true) {
+      delete sessionConfig.custom_text;
+      delete sessionConfig.phone_number_collection;
+    }
+    const session = await stripe.checkout.sessions.create(sessionConfig, paymentFirst === true ? {apiVersion:'2025-09-30.clover'} : undefined);
     return {
       statusCode: 200,
       headers: { ...baseHeaders, "Content-Type": "application/json" },
-      body: JSON.stringify({ url: session.url, sessionId: session.id, receiptToken }),
+      body: JSON.stringify({ ...((embedded === true || paymentFirst === true) ? {clientSecret:session.client_secret,publishableKey} : {url:session.url}), sessionId:session.id,receiptToken }),
     };
   } catch (err) {
     console.error("Stripe Checkout error:", err.message);
