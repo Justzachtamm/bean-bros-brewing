@@ -25,7 +25,7 @@ window.BeanBrosExpress=(()=>{
    }catch(e){quote=null;error(e.message);event.reject()}
   }
   wallet.on('ready',e=>{clearTimeout(readyTimer);if(current!==generation)return;node('wallet-retry').hidden=true;const available=e.availablePaymentMethods||{};const any=!!(available.applePay||available.googlePay);node('wallet-note').textContent=any?'Use your saved payment and delivery details.':'Wallets aren’t available in this browser. Open this page in Safari or Chrome, or enter your details below.';if(!any)callbacks.unavailable()});
-  wallet.on('click',e=>{quote=null;service=null;address=null;error('');callbacks.busy(true);e.resolve({shippingRates:pending,lineItems:initial.items});});
+  wallet.on('click',e=>{quote=null;service=null;address=null;error('');callbacks.busy(true,{walletOpen:true});e.resolve({shippingRates:pending,lineItems:initial.items});});
   wallet.on('shippingaddresschange',e=>{address=destination(e.address);return update(e,service)});
   wallet.on('shippingratechange',e=>update(e,e.shippingRate.id));
   wallet.on('cancel',()=>{quote=null;service=null;address=null;elements.update({amount:initial.amount});callbacks.busy(false)});

@@ -43,7 +43,7 @@ exports.handler = async (event) => {
     if (!Array.isArray(items) || items.length === 0 || items.length > 50) {
       return { statusCode: 400, headers: baseHeaders, body: JSON.stringify({ error: "No items in cart" }) };
     }
-    if (!["quote","wallet-start","wallet-quote"].includes(action) && (!isAllowedRedirect(successUrl) || !isAllowedRedirect(cancelUrl))) {
+    if (!["quote","wallet-start","wallet-quote","promo-check"].includes(action) && (!isAllowedRedirect(successUrl) || !isAllowedRedirect(cancelUrl))) {
       return { statusCode: 400, headers: baseHeaders, body: JSON.stringify({ error: "Invalid redirect URL" }) };
     }
 
@@ -112,7 +112,7 @@ exports.handler = async (event) => {
     }
 
     const stripe = Stripe(secretKey);
-    if (taxEnabled && action !== "wallet-start") {
+    if (taxEnabled && !["wallet-start","promo-check"].includes(action)) {
       const settings = await stripe.tax.settings.retrieve();
       let newJerseyActive = false;
       for await (const registration of stripe.tax.registrations.list({status:"active",limit:100})) {
@@ -191,6 +191,11 @@ exports.handler = async (event) => {
       }
     }
 
+    if (action === 'promo-check') {
+      if (!promoCode || typeof promoCode !== 'string' || !promoCode.trim()) throw Error('Enter a promo code.');
+      const totals = await require('./lib/wallet-quote').walletQuote(stripe,{items:items_,selected:{amountCents:0,displayName:'Shipping'},promoCode,taxEnabled:false,hasSubscription});
+      return {statusCode:200,headers:baseHeaders,body:JSON.stringify({code:promoCode.trim().toUpperCase(),discount:totals.discount,subtotal:totals.subtotal})};
+    }
     if (action === 'wallet-start') return {statusCode:200,headers:baseHeaders,body:JSON.stringify({amount:Math.round(subtotal*100),currency:'usd',recurring:hasSubscription,frequency:hasSubscription?items_[0].frequency:null,items:items_.map(i=>({name:i.name,amount:Math.round(i.price*100)*i.quantity}))})};
     const destination = shippingAddress(shipTo,{partial:action==='wallet-quote'});
     if (action !== "wallet-quote") await require("./lib/ups").validateAddress(destination);
