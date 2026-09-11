@@ -9,6 +9,7 @@ function art(p,mode='card'){
  return `<div class="cutout-image ${p.type==='Bundles'?'bundle-image':''}"><img src="assets/herbs/${p.id}-front.png" alt="${esc(p.name)} product on a transparent background" loading="lazy"></div>`;
 }
 function back(p){
+ if(p.backLabel)return `<figure class="source-back"><img src="${esc(p.backLabel)}" alt="${esc(p.name)} back sticker"><figcaption>Back sticker</figcaption></figure>`;
  if(p.backKind==='source')return `<figure class="source-back"><img src="${p.images[1]||p.images[0]}" alt="${esc(p.name)} back packaging shown in original listing"><figcaption>Back packaging · Original listing image</figcaption></figure>`;
  const contents=p.subtitle===p.name?p.name:p.subtitle;
  return `<figure class="mock-back"><div class="back-canvas"><img src="assets/back-template.png" alt="Black pouch back packaging mockup"><div class="back-label"><b>BEAN BROS</b><h3>${esc(p.name)}</h3><small>${esc(contents)}</small><hr><strong>${p.type==='Bundles'?'IN THE BUNDLE':'BOTANICAL'}</strong><p>${esc(contents)}</p>${p.prep?`<strong>HOW TO ENJOY</strong><p>${esc(p.prep)}</p>`:''}<b>${esc(p.size)}</b><small class="mock-stamp">BACK PACKAGING MOCKUP</small></div></div><figcaption>Back packaging mockup · Based on listing text</figcaption></figure>`;
