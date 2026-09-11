@@ -2,7 +2,7 @@
 const $=id=>document.getElementById(id),money=n=>new Intl.NumberFormat('en-US',{style:'currency',currency:'USD'}).format(n);
 const escapeHTML=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const grindLabels={'whole-bean':'Whole Bean',espresso:'Espresso',drip:'Drip','pour-over':'Pour Over','french-press':'French Press','cold-brew':'Cold Brew'};
-let products=[],bag=[],currentProduct=null,filter='all',threshold=null,checkingOut=false,paymentSubmitting=false,loaded=false,promoApplying=false,promoAttempt=0;
+let products=[],bag=[],currentProduct=null,filter='all',threshold=null,checkingOut=false,paymentSubmitting=false,loaded=false,promoApplying=false,promoAttempt=0,checkoutStartRevision=0;
 const storage={get(k){try{return sessionStorage.getItem(k)}catch{return null}},set(k,v){try{sessionStorage.setItem(k,v);return true}catch{return false}}};
 function token(){try{return localStorage.getItem('bb_token')||''}catch{return ''}}
 // Purge only obsolete insecure storage from historical storefront versions.
@@ -23,7 +23,7 @@ function showProduct(id,subscription=false){currentProduct=products.find(p=>p.id
 function updateOptionPrice(){if(!currentProduct)return;const recurring=document.querySelector('input[name="purchase"]:checked').value==='subscription';$('cadence-wrap').hidden=!recurring;$('add-price').textContent=money(Math.round(currentProduct.price*(recurring?.9:1)*100)/100*(Number($('quantity').value)||1))}
 let shippingQuote=null,shippingBusy=false,paymentReady=false,paymentRevision=0,preparingPayment=false;
 function resetPayment(){paymentRevision++;window.BeanBrosPayment.reset();paymentReady=false;$('edit-delivery').hidden=true;$('checkout-live').hidden=false;}
-$('delivery-dialog').addEventListener('close',()=>{clearTimeout(checkoutTimer);autoCheckoutKey='';window.BeanBrosExpress.destroy();resetPayment();window.BeanBrosPayment.destroy();renderBag()});
+$('delivery-dialog').addEventListener('close',()=>{checkoutStartRevision++;clearTimeout(checkoutTimer);autoCheckoutKey='';window.BeanBrosExpress.destroy();resetPayment();window.BeanBrosPayment.destroy();renderBag()});
 $('billing-same').onchange=()=>{$('billing-address').hidden=$('billing-same').checked;resetPayment();renderBag()};
 $('payment-email').oninput=()=>{resetPayment();renderBag()};
 $('edit-delivery').onclick=()=>{resetPayment();renderBag();$('shipping-form').elements.namedItem('name').focus()};
@@ -59,8 +59,8 @@ $('checkout-live').onclick=async()=>{
  finally{checkingOut=false;renderBag();$('checkout-live').textContent='Checkout · review total'}
 };
 $('begin-checkout').onclick=async()=>{
- renderBag();if($('begin-checkout').disabled)return;if(bag.some(i=>i.isSubscription)&&!token()){persist();account();return}closeDialog($('cart-dialog'));$('delivery-warning').textContent='';openDialog('delivery-dialog');showManualCheckout();$('wallet-retry').hidden=true;$('wallet-note').textContent='Loading Apple Pay and Google Pay…';$('express-error').textContent='';const revision=paymentRevision;$('payment-placeholder').hidden=false;$('payment-placeholder').textContent='Loading secure card fields…';
- try{const [config,initial]=await Promise.all([api('payment-config'),api('create-checkout-session',{action:'wallet-start',items:checkoutItems()})]);if(revision!==paymentRevision||!$('delivery-dialog').open)return;if(await window.BeanBrosPayment.start(config.publishableKey,{wallets:false,...initial,onAddress:syncDeliveryAutocomplete})){ $('payment-placeholder').hidden=true;
+ renderBag();if($('begin-checkout').disabled)return;if(bag.some(i=>i.isSubscription)&&!token()){persist();account();return}closeDialog($('cart-dialog'));$('delivery-warning').textContent='';openDialog('delivery-dialog');showManualCheckout();$('wallet-retry').hidden=true;$('wallet-note').textContent='Loading Apple Pay and Google Pay…';$('express-error').textContent='';const revision=++checkoutStartRevision;$('payment-placeholder').hidden=false;$('payment-placeholder').textContent='Loading secure card fields…';
+ try{const [config,initial]=await Promise.all([api('payment-config'),api('create-checkout-session',{action:'wallet-start',items:checkoutItems()})]);if(revision!==checkoutStartRevision||!$('delivery-dialog').open)return;if(await window.BeanBrosPayment.start(config.publishableKey,{wallets:false,...initial,onAddress:syncDeliveryAutocomplete})){ if(revision!==checkoutStartRevision||!$('delivery-dialog').open)return;$('payment-placeholder').hidden=true;
    await window.BeanBrosExpress.start(config.publishableKey,{initial,
     request:body=>api('create-checkout-session',{...body,emailConsent:checkoutEmailConsent(),items:checkoutItems(),measurement:globalThis.window?.BeanBrosAnalytics?.checkoutContext()}),
     promo:()=>$('promo-code').value.trim(),busy:(value,options={})=>{checkingOut=value;paymentSubmitting=value&&!options.walletOpen;renderBag()},
