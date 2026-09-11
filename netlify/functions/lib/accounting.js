@@ -1,5 +1,5 @@
 // All monetary values in these records are integer cents from Stripe.
-const TAX_CODES = Object.freeze({coffee:'txcd_41050006',tea:'txcd_41050008',accessories:'txcd_99999999',prepared_food:'txcd_40060003'});
+const TAX_CODES = Object.freeze({coffee:'txcd_41050006',tea:'txcd_41050008',accessories:'txcd_99999999',prepared_food:'txcd_40060003',nutritional_supplements:'txcd_40090008'});
 function taxCode(category){if(!Object.hasOwn(TAX_CODES,category))throw Error('This product needs a tax category before it can be purchased.');return TAX_CODES[category]}
 const id = value => typeof value==='string'?value:value?.id||null;
 function snapshot(source, event, lines, invoice=false){

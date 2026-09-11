@@ -55,3 +55,5 @@ test('payment config exposes only a matching publishable key',async()=>{
  assert.equal((await h(event())).statusCode,405);
  const missing=loader()('netlify/functions/payment-config.js').handler;assert.equal((await missing(event({}, {httpMethod:'GET'}))).statusCode,503);
 });
+
+test('nutritional supplements enter tax-enabled checkout with the nutritional tax code',async()=>{const x=checkoutHarness({STRIPE_TAX_ENABLED:'true'},'nutritional_supplements');assert.equal((await x.h(event(cart))).statusCode,200);assert.equal(x.config().line_items[0].price_data.product_data.tax_code,'txcd_40090008');assert.equal(x.config().automatic_tax.enabled,true)});
