@@ -1,8 +1,8 @@
 'use strict';
 window.BeanBrosExpress=(()=>{
- let stripe,elements,wallet,generation=0,busy=false,currentCallbacks;
+ let stripe,elements,wallet,generation=0,busy=false,currentCallbacks,readyTimer;
  const node=id=>document.getElementById(id);
- function destroy(){generation++;currentCallbacks?.busy(false);currentCallbacks=null;if(wallet)wallet.destroy();wallet=null;elements=null;stripe=null;busy=false;node('wallet-primary').replaceChildren()}
+ function destroy(){clearTimeout(readyTimer);generation++;currentCallbacks?.busy(false);currentCallbacks=null;if(wallet)wallet.destroy();wallet=null;elements=null;stripe=null;busy=false;node('wallet-primary').replaceChildren()}
  function destination(value){const a=value?.address||value||{};return {name:value?.name||'',address:a.line1||'',address2:a.line2||'',city:a.city||'',state:a.state||'',zip:a.postal_code||'',country:a.country||'US',residential:true}}
  function checked(result){if(result.type==='error'||result.error)throw Error(result.error?.message||'Payment could not be completed.');return result}
  async function start(key,callbacks){
@@ -24,7 +24,7 @@ window.BeanBrosExpress=(()=>{
     quote=next;service=next.selectedService;acceptedPromo=promo;elements.update({amount:next.total});event.resolve({shippingRates:rates(next),lineItems:next.lineItems});
    }catch(e){quote=null;error(e.message);event.reject()}
   }
-  wallet.on('ready',e=>{if(current!==generation)return;const available=e.availablePaymentMethods||{};const any=!!(available.applePay||available.googlePay);node('wallet-note').textContent=any?'Use your saved payment and delivery details.':'Wallets aren’t available in this browser. Open this page in Safari or Chrome, or enter your details below.';if(!any)callbacks.unavailable()});
+  wallet.on('ready',e=>{clearTimeout(readyTimer);if(current!==generation)return;node('wallet-retry').hidden=true;const available=e.availablePaymentMethods||{};const any=!!(available.applePay||available.googlePay);node('wallet-note').textContent=any?'Use your saved payment and delivery details.':'Wallets aren’t available in this browser. Open this page in Safari or Chrome, or enter your details below.';if(!any)callbacks.unavailable()});
   wallet.on('click',e=>{quote=null;service=null;address=null;error('');callbacks.busy(true);e.resolve({shippingRates:pending,lineItems:initial.items});});
   wallet.on('shippingaddresschange',e=>{address=destination(e.address);return update(e,service)});
   wallet.on('shippingratechange',e=>update(e,e.shippingRate.id));
@@ -54,6 +54,8 @@ window.BeanBrosExpress=(()=>{
    }catch(err){error(err.message);e.paymentFailed({reason:err.status===422?'invalid_shipping_address':'fail'});if([409,422].includes(err.status)&&finalShipping){callbacks.busy(false);callbacks.fallback?.(finalShipping,finalBilling,err)}}
    finally{busy=false;callbacks.busy(false)}
   });
+  const failed=()=>{if(current!==generation)return;clearTimeout(readyTimer);node('wallet-note').textContent='Express checkout is taking longer than expected. Retry or use the form below.';node('wallet-retry').hidden=false;callbacks.unavailable()};
+  wallet.on('loaderror',failed);readyTimer=setTimeout(failed,15000);
   wallet.mount('#wallet-primary');
  }
  return {start,destroy};

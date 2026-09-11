@@ -59,7 +59,7 @@ $('checkout-live').onclick=async()=>{
  finally{checkingOut=false;renderBag();$('checkout-live').textContent='Checkout · review total'}
 };
 $('begin-checkout').onclick=async()=>{
- renderBag();if($('begin-checkout').disabled)return;if(bag.some(i=>i.isSubscription)&&!token()){persist();account();return}closeDialog($('cart-dialog'));$('delivery-warning').textContent='';openDialog('delivery-dialog');$('manual-checkout').hidden=true;$('wallet-primary').after($('checkout-email-options'));$('wallet-note').textContent='Loading Apple Pay and Google Pay…';$('express-error').textContent='';const revision=paymentRevision;$('payment-placeholder').hidden=false;$('payment-placeholder').textContent='Loading secure card fields…';
+ renderBag();if($('begin-checkout').disabled)return;if(bag.some(i=>i.isSubscription)&&!token()){persist();account();return}closeDialog($('cart-dialog'));$('delivery-warning').textContent='';openDialog('delivery-dialog');$('manual-checkout').hidden=true;$('wallet-primary').after($('checkout-email-options'));$('wallet-retry').hidden=true;$('wallet-note').textContent='Loading Apple Pay and Google Pay…';$('express-error').textContent='';const revision=paymentRevision;$('payment-placeholder').hidden=false;$('payment-placeholder').textContent='Loading secure card fields…';
  try{const [config,initial]=await Promise.all([api('payment-config'),api('create-checkout-session',{action:'wallet-start',items:checkoutItems()})]);if(revision!==paymentRevision||!$('delivery-dialog').open)return;if(await window.BeanBrosPayment.start(config.publishableKey,{wallets:false,...initial,onAddress:syncDeliveryAutocomplete})){ $('payment-placeholder').hidden=true;
    await window.BeanBrosExpress.start(config.publishableKey,{initial,
     request:body=>api('create-checkout-session',{...body,emailConsent:checkoutEmailConsent(),items:checkoutItems(),measurement:globalThis.window?.BeanBrosAnalytics?.checkoutContext()}),
@@ -68,7 +68,7 @@ $('begin-checkout').onclick=async()=>{
     fallback:(address,billing,error)=>{for(const k of ['name','address','address2','city','state','zip'])$('shipping-form').elements.namedItem(k).value=address[k]||'';$('payment-email').value=billing?.email||'';window.BeanBrosPayment.setAddress(address);showManualCheckout();clearShipping();showAddressSuggestions(error?.candidates);$('shipping-status').textContent=error?.message||'';autoEditVersion++;autoCheckoutKey='';renderBag();if(error?.status!==422)scheduleCheckout()},
     remember:data=>{if(!storage.set('bb_pending_order',JSON.stringify({items:bag.map(i=>({name:i.product.name,quantity:i.quantity})),sessionId:data.sessionId,receiptToken:data.receiptToken})))throw Error('Please allow browser session storage to continue to payment.')}
    }); }}
- catch(e){$('payment-placeholder').textContent=e.message;$('express-error').textContent=e.message;showManualCheckout()}
+ catch(e){$('wallet-note').textContent='Express checkout could not load.';$('wallet-retry').hidden=false;$('payment-placeholder').textContent=e.message;$('express-error').textContent=e.message;showManualCheckout()}
 };
 $('back-to-bag').onclick=()=>{closeDialog($('delivery-dialog'));renderBag();openDialog('cart-dialog')};
 $('cart-open').onclick=()=>{renderBag();openDialog('cart-dialog')};$('account-open').onclick=account;$('account-mobile').onclick=account;$('subscribe-start').onclick=showSubscriptionBuilder;
@@ -235,3 +235,5 @@ function renderCartMushrooms(){
   catch(error){$('cart-mushroom-status').textContent=error.message}
  });
 }
+
+$('wallet-retry').onclick=()=>{closeDialog($('delivery-dialog'));setTimeout(()=>$('begin-checkout').onclick(),0)};

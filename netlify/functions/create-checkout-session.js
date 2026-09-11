@@ -57,7 +57,7 @@ exports.handler = async (event) => {
     const items_ = [];
     const taxEnabled = process.env.STRIPE_TAX_ENABLED === "true";
     if (/^(sk|rk)_live_/.test(secretKey) && !taxEnabled) return { statusCode: 503, headers: baseHeaders, body: JSON.stringify({ error: "Checkout is awaiting tax setup. Please contact the store." }) };
-    const profiles = taxEnabled ? await businessRecords.list("tax_profile") : [];
+    const profiles = taxEnabled && action !== "wallet-start" ? await businessRecords.list("tax_profile") : [];
     const counts = new Map();
     const grindLabels = { "whole-bean": "Whole Bean", espresso: "Espresso", drip: "Drip", "pour-over": "Pour Over", "french-press": "French Press", "cold-brew": "Cold Brew" };
     for (const item of items) {
@@ -112,7 +112,7 @@ exports.handler = async (event) => {
     }
 
     const stripe = Stripe(secretKey);
-    if (taxEnabled) {
+    if (taxEnabled && action !== "wallet-start") {
       const settings = await stripe.tax.settings.retrieve();
       let newJerseyActive = false;
       for await (const registration of stripe.tax.registrations.list({status:"active",limit:100})) {

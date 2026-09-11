@@ -83,7 +83,7 @@ async function getProducts() {
 async function getProductByName(name) {
   const key = normalizeName(name);
   if (!key) return null;
-  const row = await db.one(`SELECT ${COLUMNS} FROM products WHERE lower(name) = $1`, [key]);
+  const row = await db.one(`SELECT ${COLUMNS} FROM products WHERE lower(btrim(name)) = $1`, [key]);
   return toProduct(row);
 }
 
@@ -140,7 +140,7 @@ async function decrementStock(items) {
     if (!key || !(qty > 0)) continue;
     await db.query(
       `UPDATE products SET stock = GREATEST(0, stock - $2), updated_at = now()
-       WHERE lower(name) = $1`,
+       WHERE lower(btrim(name)) = $1`,
       [key, qty]
     );
   }

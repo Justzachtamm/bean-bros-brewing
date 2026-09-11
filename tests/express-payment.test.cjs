@@ -6,7 +6,7 @@ function harness({total=2776}={}){
  const elements={create:(type,options)=>{calls.push(['element',type,options]);return wallet},update:o=>calls.push(['amount',o]),submit:async()=>({})};
  const actions={updateEmail:async()=>({type:'success'}),updateBillingAddress:async()=>({type:'success'}),getSession:()=>({currency:'usd',tax:{status:'ready'},total:{total:{minorUnitsAmount:total}}}),confirm:async p=>{calls.push(['confirm',p]);return {type:'success'}}};
  const stripe={elements:options=>{calls.push(['elements',options]);return elements},createPaymentMethod:async()=>({paymentMethod:{id:'pm_wallet'}}),initCheckout:()=>({loadActions:async()=>({type:'success',actions})})};
- const c={window:{Stripe:()=>stripe},document:{getElementById:node},location:{origin:'https://beanbrosbrewingco.com'},Error};vm.runInNewContext(fs.readFileSync('assets/express-payment.js','utf8'),c);
+ const c={setTimeout:()=>0,clearTimeout:()=>{},window:{Stripe:()=>stripe},document:{getElementById:node},location:{origin:'https://beanbrosbrewingco.com'},Error};vm.runInNewContext(fs.readFileSync('assets/express-payment.js','utf8'),c);
  const callbacks={request:async body=>{calls.push(['request',body]);return body.action==='wallet-start'?{amount:1999,items:[{name:'Coffee',amount:1999}]}:body.action==='wallet-quote'?quote:{clientSecret:'cs_secret'}},promo:()=>'',busy(){},unavailable(){},remember:()=>calls.push(['remember'])};
  return {api:c.window.BeanBrosExpress,callbacks,events,calls,node};
 }
