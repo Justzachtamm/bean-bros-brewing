@@ -2,7 +2,7 @@
 const $=id=>document.getElementById(id),money=n=>new Intl.NumberFormat('en-US',{style:'currency',currency:'USD'}).format(n);
 const escapeHTML=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const grindLabels={'whole-bean':'Whole Bean',espresso:'Espresso',drip:'Drip','pour-over':'Pour Over','french-press':'French Press','cold-brew':'Cold Brew'};
-let products=[],bag=[],currentProduct=null,filter='all',threshold=null,checkingOut=false,paymentSubmitting=false,loaded=false;
+let products=[],bag=[],currentProduct=null,filter='all',threshold=null,checkingOut=false,paymentSubmitting=false,loaded=false,promoApplying=false,promoAttempt=0;
 const storage={get(k){try{return sessionStorage.getItem(k)}catch{return null}},set(k,v){try{sessionStorage.setItem(k,v);return true}catch{return false}}};
 function token(){try{return localStorage.getItem('bb_token')||''}catch{return ''}}
 // Purge only obsolete insecure storage from historical storefront versions.
@@ -192,7 +192,6 @@ async function refreshCheckout(){
  }finally{preparingPayment=false;renderBag()}
 }
 for(const id of ['shipping-form','payment-email','promo-code','billing-same'])$(id).addEventListener('input',()=>{autoEditVersion++;autoCheckoutKey='';scheduleCheckout()});
-let promoApplying=false,promoAttempt=0;
 $('promo-code').addEventListener('input',()=>{promoAttempt++;$('promo-status').textContent='';resetPayment();renderBag()});
 $('apply-promo').onclick=async()=>{
  if(paymentSubmitting||promoApplying)return;
