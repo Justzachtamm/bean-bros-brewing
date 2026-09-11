@@ -48,7 +48,7 @@ exports.handler = async (event) => {
     }
 
     const publishableKey = process.env.STRIPE_PUBLISHABLE_KEY || '';
-    if ((embedded === true || paymentFirst === true) && action !== 'quote' && (!/^pk_(test|live)_[A-Za-z0-9]+$/.test(publishableKey) || publishableKey.split('_')[1] !== secretKey.split('_')[1])) {
+    if ((embedded === true || paymentFirst === true || action === 'wallet-start') && action !== 'quote' && (!/^pk_(test|live)_[A-Za-z0-9]+$/.test(publishableKey) || publishableKey.split('_')[1] !== secretKey.split('_')[1])) {
       return {statusCode:503,headers:baseHeaders,body:JSON.stringify({error:'Secure payment is not configured yet. Please contact the store.'})};
     }
     const needsAccount = items.some((item) => item?.isSubscription) || !!(event.headers?.authorization || event.headers?.Authorization);
@@ -149,12 +149,10 @@ exports.handler = async (event) => {
       quantity: item.quantity,
     }));
 
-    const shippingConfig = await getShippingConfig();
     // Subscription items already ship at SUBSCRIBE_DISCOUNT off — the
     // threshold is evaluated against what's actually being charged today,
     // same as everything else in this checkout.
     const subtotal = items_.reduce((sum, i) => sum + i.price * i.quantity, 0);
-    const qualifiesForFreeShipping = Number(shippingConfig.freeShipThreshold) > 0 && subtotal >= shippingConfig.freeShipThreshold;
 
     const hasSubscription = items_.some((i) => i.isSubscription);
     const hasOneTime = items_.some((i) => !i.isSubscription);
@@ -196,7 +194,9 @@ exports.handler = async (event) => {
       const totals = await require('./lib/wallet-quote').walletQuote(stripe,{items:items_,selected:{amountCents:0,displayName:'Shipping'},promoCode,taxEnabled:false,hasSubscription});
       return {statusCode:200,headers:baseHeaders,body:JSON.stringify({code:promoCode.trim().toUpperCase(),discount:totals.discount,subtotal:totals.subtotal})};
     }
-    if (action === 'wallet-start') return {statusCode:200,headers:baseHeaders,body:JSON.stringify({amount:Math.round(subtotal*100),currency:'usd',recurring:hasSubscription,frequency:hasSubscription?items_[0].frequency:null,items:items_.map(i=>({name:i.name,amount:Math.round(i.price*100)*i.quantity}))})};
+    if (action === 'wallet-start') return {statusCode:200,headers:baseHeaders,body:JSON.stringify({publishableKey,amount:Math.round(subtotal*100),currency:'usd',recurring:hasSubscription,frequency:hasSubscription?items_[0].frequency:null,items:items_.map(i=>({name:i.name,amount:Math.round(i.price*100)*i.quantity}))})};
+    const shippingConfig = await getShippingConfig();
+    const qualifiesForFreeShipping = Number(shippingConfig.freeShipThreshold) > 0 && subtotal >= shippingConfig.freeShipThreshold;
     const destination = shippingAddress(shipTo,{partial:action==='wallet-quote'});
     if (action !== "wallet-quote") await require("./lib/ups").validateAddress(destination);
     const packageDetails = getPackageDetails(items_, shippingConfig);
@@ -283,7 +283,7 @@ exports.handler = async (event) => {
       ...(taxEnabled ? { automatic_tax: { enabled: true } } : {}),
       metadata: { email_consent: JSON.stringify(require('./lib/email-consent').normalize(emailConsent)), measurement: JSON.stringify(require("./lib/conversions").context(measurement)), receipt_token_hash: crypto.createHash("sha256").update(receiptToken).digest("hex"), fulfillment_version: "2", quoted_shipping: JSON.stringify(destination), shipping_package: JSON.stringify(packageDetails) },
       line_items: sessionLineItems,
-      ...((embedded === true || paymentFirst === true)
+      ...((embedded === true || paymentFirst === true || action === 'wallet-start')
         ? {ui_mode:paymentFirst === true ? 'custom' : 'embedded', return_url:checkoutSuccessUrl(successUrl)}
         : {success_url:checkoutSuccessUrl(successUrl), cancel_url:cancelUrl}),
       billing_address_collection: "required",
@@ -333,7 +333,7 @@ exports.handler = async (event) => {
     return {
       statusCode: 200,
       headers: { ...baseHeaders, "Content-Type": "application/json" },
-      body: JSON.stringify({ ...((embedded === true || paymentFirst === true) ? {clientSecret:session.client_secret,publishableKey} : {url:session.url}), sessionId:session.id,receiptToken }),
+      body: JSON.stringify({ ...((embedded === true || paymentFirst === true || action === 'wallet-start') ? {clientSecret:session.client_secret,publishableKey} : {url:session.url}), sessionId:session.id,receiptToken }),
     };
   } catch (err) {
     console.error("Stripe Checkout error:", err.message);

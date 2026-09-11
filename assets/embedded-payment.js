@@ -52,5 +52,5 @@ window.BeanBrosPayment=(()=>{
   }catch(error){if(current===revision)reset();throw error}
  }
  function setAddress(a){delivery?.update({defaultValues:{name:a.name,address:{line1:a.address,line2:a.address2||'',city:a.city,state:a.state,postal_code:a.zip,country:'US'}}})}
- return {start,prepare,reset,destroy,setAddress};
+ return {start,prepare,reset,destroy,setAddress,preload:library};
 })();
