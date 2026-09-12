@@ -11,6 +11,7 @@ function art(p,mode='card'){
  return `<div class="cutout-image ${p.type==='Bundles'?'bundle-image':''}"><img src="assets/herbs/${p.id}-front.png" alt="${esc(p.name)} product on a transparent background" loading="lazy"></div>`;
 }
 function back(p){
+ if(p.backMockup){const labels=p.backLabel?[{src:p.backLabel,name:p.name}]:(p.backLabels||[]);return `<figure class="source-back"><img src="${esc(p.backMockup)}" alt="${esc(p.name)} back packaging mockup"><figcaption>Back package mockup</figcaption></figure>`+labels.map(label=>`<figure class="source-back"><img src="${esc(label.src)}" alt="${esc(label.name)} back sticker"><figcaption>${esc(label.name)} back sticker</figcaption></figure>`).join('');}
  if(p.backLabel)return `<figure class="source-back"><img src="${esc(p.backLabel)}" alt="${esc(p.name)} back sticker"><figcaption>Back sticker</figcaption></figure>`;
  if(p.backKind==='source')return `<figure class="source-back"><img src="${p.images[1]||p.images[0]}" alt="${esc(p.name)} back packaging shown in original listing"><figcaption>Back packaging · Original listing image</figcaption></figure>`;
  const contents=p.subtitle===p.name?p.name:p.subtitle;

@@ -100,10 +100,12 @@ async function loadProductReviews(id){
 document.addEventListener('click',e=>{const button=e.target.closest('[data-photo-product]');if(button)showProduct(Number(button.dataset.photoProduct));});
 function renderPhotoGallery(){
  const p=currentProduct,detail=window.BEAN_HERB_DETAILS?.[p.id],photos=[{src:imageURL(p),label:'Front package'}];
+ if(detail?.backMockup)photos.push({src:'/collections/'+detail.backMockup,label:'Back package mockup'});
  if(detail?.backLabel)photos.push({src:'/collections/'+detail.backLabel,label:'Back sticker'});
+ for(const label of detail?.backLabels||[])photos.push({src:'/collections/'+label.src,label:label.name+' back sticker'});
  const brand=window.BeanBrosBrand.productImages[p.id];if(brand&&!photos.some(x=>x.src===brand))photos.push({src:brand,label:'Package photo'});
  for(const [i,path] of (detail?.images||[]).entries()){const src='/collections/'+path;if(!photos.some(x=>x.src===src))photos.push({src,label:detail.backKind==='source'&&i===1?'Back package':'Listing photo '+(i+1)});}
- if(detail?.backKind==='mockup')photos.push({mockup:true,src:'/collections/assets/back-template.png',label:'Back packaging mockup'});
+ if(detail?.backKind==='mockup'&&!detail?.backMockup)photos.push({mockup:true,src:'/collections/assets/back-template.png',label:'Back packaging mockup'});
  const old=$('herb-original');if(old)old.hidden=true;
  $('product-gallery').innerHTML=photos.map((x,i)=>`<button type="button" data-gallery-photo="${i}" aria-label="${escapeHTML(x.label)}" aria-pressed="${i===0}"><img src="${x.src}" alt=""><span>${escapeHTML(x.label)}</span></button>`).join('');
  function select(i){const photo=photos[i];$('option-image').hidden=!!photo.mockup;$('herb-back-view')?.remove();if(photo.mockup)$('herb-back')?.click();else{$('option-image').src=photo.src;$('option-image').alt=p.name+' — '+photo.label;}$('gallery-caption').textContent=photo.label+(photo.mockup?' · Based on listing text':'');$('product-gallery').querySelectorAll('button').forEach((b,n)=>b.setAttribute('aria-pressed',String(n===i)));}
