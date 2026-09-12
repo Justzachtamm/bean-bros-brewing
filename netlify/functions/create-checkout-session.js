@@ -74,6 +74,7 @@ exports.handler = async (event) => {
         return { statusCode: 400, headers: baseHeaders, body: JSON.stringify({ error: `Only ${product.stock} left of ${product.name}` }) };
       }
       const isSubscription = !!item.isSubscription;
+      if(isSubscription&&['accessories','merch'].includes(product.category))throw Error('Accessories and merchandise are one-time purchases.');
       const botanical = ['tea','herbs'].includes(product.category);
       const mushroomSubscription = /^(?:neuroshroom|lion[’']?s? mane(?: mushroom(?: powder)?)?|reishi(?: mushroom)?|thrive mode)$/i.test(product.name.trim());
       if(botanical && isSubscription && !mushroomSubscription)throw new Error('Herbs and teas are available as one-time purchases.');
@@ -94,7 +95,7 @@ exports.handler = async (event) => {
       const price = isSubscription && !botanical
         ? Math.round(product.price * (1 - SUBSCRIBE_DISCOUNT) * 100) / 100
         : product.price;
-      const grindLabel = botanical ? product.weight || 'As packaged' : grindLabels[item.grind] || Object.values(grindLabels).find((label) => label === item.grindLabel);
+      const grindLabel = ['accessories','merch'].includes(product.category)?'Each':botanical ? product.weight || 'As packaged' : grindLabels[item.grind] || Object.values(grindLabels).find((label) => label === item.grindLabel);
       if (!grindLabel) throw new Error("Select a valid grind.");
       items_.push({
         productId: product.id,
