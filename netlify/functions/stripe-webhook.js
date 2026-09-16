@@ -49,7 +49,14 @@ async function recordOrder(stripe, { id, sourceId, customerId, customerName, cus
     date: accounting?.paidAt || new Date().toISOString(), customerName: customerName || "Unknown",
     customerEmail: customerEmail || "", items, total, status: "Paid", shippingAddress,
     extra: { shippingService, shippingPackage, accounting }, trackingNumber: null, labelKey: null });
-  if(accounting?.livemode===true&&customerEmail){const care=require('./lib/customer-care');await care.queue('order:'+id,customerEmail,care.message('Your Bean Bros order is confirmed',`Thank you for your order ${id}.\n${items.filter(i=>!i.isShipping).map(i=>i.quantity+' × '+i.name).join('\n')}\nPaid total: $${Number(total).toFixed(2)}. We’ll email you when your package ships.`));}
+  if(accounting?.livemode===true&&customerEmail){const care=require('./lib/customer-care');await care.queue('order:'+id,customerEmail,care.message('Your Bean Bros order is confirmed',`Thank you for your order ${id}.\n${items.filter(i=>!i.isShipping).map(i=>i.quantity+' × '+i.name).join('\n')}\nPaid total: $${Number(total).toFixed(2)}. Tracking will be emailed when your shipping label is ready.`));await care.sendQueued('order:'+id);}
+  if(accounting?.livemode===true){
+    const label=await require('./create-shipping-label').createLabel(id,{}, {automatic:true});
+    if(label.statusCode!==200){
+      console.error('Automatic label needs attention',id,label.statusCode);
+      await require('./lib/orders').updateOrder(id,{labelError:'Automatic label needs attention. Review the order and UPS before retrying.'});
+    }
+  }
   await require("./lib/order-notification").notifyOwner({id,sessionId:sourceId,customerName,customerEmail,items,total,shippingAddress,shippingService,accounting});
   return recorded;
 }

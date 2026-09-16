@@ -1,0 +1,4 @@
+const {test}=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm');
+const source=fs.readFileSync('assets/admin-operations.js','utf8');
+const c={esc:v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))};vm.runInNewContext(source.slice(source.indexOf('function packingSlipHTML')),c);
+test('branded packing slip escapes customer details and omits shipping line items',()=>{const html=c.packingSlipHTML({id:'BB-1',date:'2026-09-16',shippingAddress:{name:'<script>bad</script>'},items:[{name:'Coffee <img onerror=x>',quantity:2,grind:'Drip'},{name:'Shipping',quantity:1,isShipping:true}]});assert.match(html,/Bean-Bros-Full-Logo-2x2-Inverted.jpg/);assert.match(html,/2 items enclosed/);assert.match(html,/Drip/);assert.match(html,/&lt;script&gt;/);assert.doesNotMatch(html,/<script>|<img onerror|<strong>Shipping/)});

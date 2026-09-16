@@ -107,14 +107,29 @@ function isShippingItem(item) {
   return p?.metadata?.kind === "shipping" || (p?.name === "Shipping" && p?.metadata?.subscription !== "true");
 }
 
+async function expandSubscriptionProducts(stripe, subscriptions) {
+  const products = new Map();
+  for (const sub of subscriptions) {
+    for (const item of sub.items.data) {
+      const product = item.price.product;
+      if (typeof product === 'string') {
+        if (!products.has(product)) products.set(product, await stripe.products.retrieve(product));
+        item.price.product = products.get(product);
+      }
+    }
+  }
+}
+
 async function listCustomerSubscriptionItems(stripe, customerId) {
   const subs = await stripe.subscriptions.list({
     customer: customerId,
     status: "all",
     limit: 100,
-    expand: ["data.items.data.price.product"],
+    // Expanding the product here exceeds Stripe's four-level limit.
+    expand: ["data.items.data.price"],
   });
 
+  await expandSubscriptionProducts(stripe, subs.data);
   const rows = [];
   for (const sub of subs.data) {
     if (sub.status === "incomplete_expired") continue;
@@ -139,7 +154,7 @@ async function listCustomerSubscriptionItems(stripe, customerId) {
         frequency: Object.keys(FREQUENCY_INTERVALS).find(key => FREQUENCY_INTERVALS[key].interval === item.price.recurring?.interval && FREQUENCY_INTERVALS[key].interval_count === item.price.recurring?.interval_count) || normalizeFrequency(metadata.frequency) || DEFAULT_FREQUENCY,
         quantity: item.quantity,
         price: (item.price.unit_amount || 0) * (item.quantity || 1) / 100,
-        nextDelivery: new Date(sub.current_period_end * 1000).toISOString(),
+        nextDelivery: (item.current_period_end || sub.current_period_end) ? new Date((item.current_period_end || sub.current_period_end) * 1000).toISOString() : null,
         shippingAddress,
       });
     }
@@ -148,6 +163,7 @@ async function listCustomerSubscriptionItems(stripe, customerId) {
 }
 
 module.exports = {
+  expandSubscriptionProducts,
   isShippingItem,
   FREQUENCY_INTERVALS,
   SELECTABLE_FREQUENCIES,

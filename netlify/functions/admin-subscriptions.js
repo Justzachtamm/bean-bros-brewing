@@ -2,7 +2,7 @@ const Stripe = require("stripe");
 const { connectLambda } = require("@netlify/blobs");
 const { verifyAdminToken } = require("./lib/auth");
 const { corsHeaders } = require("./lib/cors");
-const { labelFromRecurring, labelForFrequency, normalizeFrequency } = require("./lib/subscriptions");
+const { labelFromRecurring, labelForFrequency, normalizeFrequency, expandSubscriptionProducts } = require("./lib/subscriptions");
 
 exports.handler = async (event) => {
   connectLambda(event);
@@ -38,13 +38,14 @@ exports.handler = async (event) => {
       .list({
         status: "all",
         limit: 100,
-        expand: ["data.customer", "data.items.data.price.product"],
+        expand: ["data.customer", "data.items.data.price"],
       })
       .autoPagingToArray({ limit: 1000 });
 
     const DEAD = new Set(["canceled", "incomplete_expired"]);
     const live = all.filter((sub) => !DEAD.has(sub.status));
 
+    await expandSubscriptionProducts(stripe, live);
     const upcoming = live.map((sub) => {
       const customer = sub.customer;
       const items = sub.items.data.map((item) => {

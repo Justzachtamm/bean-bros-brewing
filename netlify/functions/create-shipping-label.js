@@ -21,13 +21,6 @@ exports.handler = async (event) => {
   if (!verifyAdminToken(event.headers?.authorization || event.headers?.Authorization, process.env.ADMIN_TOKEN_SECRET)) {
     return { statusCode: 401, headers, body: JSON.stringify({ error: "Not authenticated" }) };
   }
-  if (!ups.isConfigured()) {
-    return {
-      statusCode: 500,
-      headers,
-      body: JSON.stringify({ error: "UPS is not configured yet. Add UPS_CLIENT_ID, UPS_CLIENT_SECRET, and UPS_ACCOUNT_NUMBER in Netlify." }),
-    };
-  }
 
   let orderId;
   try {
@@ -39,6 +32,18 @@ exports.handler = async (event) => {
     return { statusCode: 400, headers, body: JSON.stringify({ error: "orderId is required" }) };
   }
 
+  return createLabel(orderId,headers);
+};
+
+// Shared by the authenticated admin endpoint and verified paid-order webhook.
+async function createLabel(orderId,headers={},options={}) {
+  if (!ups.isConfigured()) {
+    return {
+      statusCode: 500,
+      headers,
+      body: JSON.stringify({ error: "UPS is not configured yet. Add UPS_CLIENT_ID, UPS_CLIENT_SECRET, and UPS_ACCOUNT_NUMBER in Netlify." }),
+    };
+  }
   const order = await getOrderById(orderId);
   if (!order) {
     return { statusCode: 404, headers, body: JSON.stringify({ error: "Order not found" }) };
@@ -50,6 +55,8 @@ exports.handler = async (event) => {
       body: JSON.stringify({ ok: true, trackingNumber: order.trackingNumber, alreadyCreated: true }),
     };
   }
+  if(options.automatic && (order.accounting?.livemode!==true || order.status!=='Paid' || order.labelVoidedAt))return {statusCode:409,headers,body:JSON.stringify({error:'This order requires manual fulfillment review.'})};
+  if(options.automatic && process.env.UPS_ENV!=='production')return {statusCode:503,headers,body:JSON.stringify({error:'Automatic labels require production UPS credentials.'})};
   if (!order.shippingAddress) {
     return { statusCode: 400, headers, body: JSON.stringify({ error: "This order has no shipping address on file (subscription renewals don't currently capture one)." }) };
   }
@@ -117,8 +124,11 @@ exports.handler = async (event) => {
       });
     }
 
-    await updateOrder(order.id, { trackingNumber: result.trackingNumber, labelKey, shipmentId: result.shipmentId, labelStore: "shipping-labels", labelCreationStartedAt: null });
+    await updateOrder(order.id, { trackingNumber: result.trackingNumber, labelKey, shipmentId: result.shipmentId, labelStore: "shipping-labels", labelCreationStartedAt: null, labelError: null });
 
+    // Email failure must never turn a successfully purchased label into a retry.
+    try { await require('./lib/customer-care').trackingReady({...order,trackingNumber:result.trackingNumber}); }
+    catch(e) { console.error('Tracking email deferred',e.name); }
     return {
       statusCode: 200,
       headers: { ...headers, "Content-Type": "application/json" },
@@ -129,4 +139,5 @@ exports.handler = async (event) => {
     // Keep the claim: a timeout does not prove UPS did not create a shipment.
     return { statusCode: 502, headers, body: JSON.stringify({ error: "Label creation could not be confirmed. Check UPS before retrying; a shipment may already exist." }) };
   }
-};
+}
+exports.createLabel=createLabel;

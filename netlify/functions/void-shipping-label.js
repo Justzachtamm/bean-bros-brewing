@@ -46,7 +46,7 @@ exports.handler = async (event) => {
     if (order.labelKey) {
       await getStore(order.labelStore === "shipping-labels" ? "shipping-labels" : "images").delete(order.labelKey).catch(() => {});
     }
-    await updateOrder(order.id, { trackingNumber: null, labelKey: null, shipmentId: null });
+    await updateOrder(order.id, { trackingNumber: null, labelKey: null, shipmentId: null, labelVoidedAt: new Date().toISOString() });
 
     return {
       statusCode: 200,

@@ -29,7 +29,7 @@ exports.handler = async (event) => {
     const order = source ? await getOrderBySource(source) : null;
     // No addresses, email, billing portal URLs or other personal fields.
     return json(200, { paid: true, total: (session.amount_total || 0) / 100,
-      currency: session.currency, order: order ? { id: order.id, items: order.items, total: order.total } : null });
+      currency: session.currency, order: order ? { id: order.id, items: order.items, total: order.total, trackingNumber: order.trackingNumber || null, status: order.status } : null });
   } catch (err) {
     console.error("Checkout status failed:", err.name);
     return json(503, { error: "We could not confirm your payment yet. Please retry; do not place another order." });
