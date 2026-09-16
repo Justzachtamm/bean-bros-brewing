@@ -44,4 +44,4 @@ document.addEventListener('click',e=>{let t=e.target.closest('button');if(!t)ret
 document.addEventListener('input',e=>{if(e.target.id==='search'){search=e.target.value;renderGrid();}});
 $('#product-form').addEventListener('submit',e=>{e.preventDefault();if(!selected||selected.comingSoon||selected.inactive||selected.price==null)return;let quantity=Number($('#quantity').value);if(!Number.isInteger(quantity)||quantity<1||quantity>10)return;bag.push({...selected,variant:$('#variant').value,quantity});renderBag();$('#product-dialog').close();$('#bag-dialog').showModal();});
 $('#bag-open').addEventListener('click',()=>{renderBag();$('#bag-dialog').showModal();});
-window.addEventListener('hashchange',()=>{if(Object.hasOwn(pages,location.hash.slice(1))){render();window.scrollTo({top:0,behavior:'instant'});}});render();renderBag();
+window.addEventListener('hashchange',()=>{if(Object.hasOwn(pages,location.hash.slice(1))){render();document.getElementById('hero-title').focus();window.scrollTo({top:0,behavior:'instant'});}});render();renderBag();

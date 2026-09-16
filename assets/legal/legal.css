@@ -229,3 +229,10 @@ address {
     transition-duration: 0.001ms !important;
   }
 }
+
+/* Reflow long addresses and policy tables on narrow or magnified screens. */
+main,.legal-footer{overflow-wrap:anywhere}
+.legal-header nav{display:flex;flex-wrap:wrap;gap:4px 16px}
+.legal-header nav a{display:inline-flex;align-items:center;min-height:44px;margin:0}
+.legal-footer a{display:inline-block;min-height:24px;margin:4px 8px}
+@media(max-width:400px){th,td{padding:8px 5px;font-size:13px}main{padding-inline:18px}.skip-link{max-width:calc(100% - 24px)}}

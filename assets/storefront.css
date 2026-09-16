@@ -45,3 +45,14 @@ body.dialog-open{overflow:hidden}
 .builder-mushroom-invitation{margin-top:28px;padding-top:22px;border-top:1px solid #c9c7bb}.builder-mushroom-invitation h2{margin-bottom:8px}
 
 #cart-mushrooms{border-top:1px solid #c9c7bb;margin-top:20px;padding-top:20px}#cart-mushrooms h3{margin-bottom:8px}#cart-mushrooms>p{font-size:14px;line-height:1.5}
+
+/* Accessible controls and readable captions across customer flows. */
+.little-label,.illustration-caption{color:var(--ink);background:var(--paper);padding:5px 8px}
+textarea{font:inherit;color:inherit}
+:focus-visible{outline:3px solid #9e482b;outline-offset:4px}
+input:not([type=radio]):not([type=checkbox]),select,textarea,.choose-button,.purchase-choice{border-color:#777b6c}
+button,summary{min-height:24px;min-width:24px}summary{cursor:pointer}
+:where(a,button,input,select,textarea,summary,[tabindex]){scroll-margin-block:120px 32px}
+@media(max-width:400px){.hero-actions{flex-wrap:wrap;gap:14px}.product-grid{grid-template-columns:1fr}.filters{flex-wrap:wrap}.collection-tools{align-items:flex-start;gap:12px;flex-wrap:wrap}.product-form,#product-form{padding:42px 20px 24px}.add-row{flex-wrap:wrap}.header{gap:10px}.header-actions{gap:10px}.cart-dialog{padding:22px}}
+
+:focus-visible{box-shadow:0 0 0 3px #fff}
