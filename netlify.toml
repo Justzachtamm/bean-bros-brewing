@@ -36,9 +36,9 @@
     # cannot be used to set a cookie for the parent domain.
     Strict-Transport-Security = "max-age=63072000; includeSubDomains; preload"
 
-    # Isolates this browsing context from windows it opens, so a popup cannot
-    # reach back into the page via window.opener.
-    Cross-Origin-Opener-Policy = "same-origin"
+    # Stripe wallet popups must retain their opener to finish Apple Pay handoff.
+    # Keep COOP isolation for incoming pages while permitting payment popups.
+    Cross-Origin-Opener-Policy = "same-origin-allow-popups"
 
     # ---- Content Security Policy ----
     #

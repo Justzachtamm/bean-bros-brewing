@@ -20,7 +20,8 @@ window.BeanBrosPayment=(()=>{
   const loaded=checked(await next.loadActions());if(current!==revision)return false;
   const nextActions=loaded.actions,contact=await billingDetails(destination);
   if(node('billing-same').checked)billing.update({defaultValues:contact});
-  checked(await nextActions.updateEmail(node('payment-email').value.trim()));
+  // Stripe locks email when the Session already has a customer email.
+  if(!nextActions.getSession().email)checked(await nextActions.updateEmail(node('payment-email').value.trim()));
   checked(await nextActions.updateBillingAddress(contact));if(current!==revision)return false;
   checkout=next;actions=nextActions;
   const session=actions.getSession();

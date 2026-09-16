@@ -44,7 +44,8 @@ window.BeanBrosExpress=(()=>{
     if(current!==generation)return;
     const checkout=(stripe.initCheckoutElementsSdk||stripe.initCheckout).call(stripe,{clientSecret:data.clientSecret});
     const {actions}=checked(await checkout.loadActions());
-    checked(await actions.updateEmail(billing.email));
+    // Keep the existing customer email; Stripe rejects overwriting it.
+    if(!actions.getSession().email)checked(await actions.updateEmail(billing.email));
     checked(await actions.updateBillingAddress({name:billing.name||shipping.name,address:billing.address||{line1:shipping.address,line2:shipping.address2,city:shipping.city,state:shipping.state,postal_code:shipping.zip,country:'US'}}));
     const session=actions.getSession();
     if(session.currency!=='usd'||session.total?.total?.minorUnitsAmount!==quote.total||session.tax&&session.tax.status!=='ready')throw Object.assign(Error('Your delivery total changed. Please review the updated total below before paying.'),{status:409});
