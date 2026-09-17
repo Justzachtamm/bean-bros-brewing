@@ -1,0 +1,297 @@
+{
+  "/assets/brand/Bean-Bros-Full-Logo-2x2-Inverted.jpg": {
+    "src": "/assets/brand/Bean-Bros-Full-Logo-2x2-Inverted-web.webp",
+    "width": 600,
+    "height": 600
+  },
+  "/assets/brand/Bean-Bros-Full-Logo-2x2.jpg": {
+    "src": "/assets/brand/Bean-Bros-Full-Logo-2x2-web.webp",
+    "width": 600,
+    "height": 600
+  },
+  "/assets/brand/Bean-Bros-Monogram-2x2-Inverted.jpg": {
+    "src": "/assets/brand/Bean-Bros-Monogram-2x2-Inverted-web.webp",
+    "width": 600,
+    "height": 600
+  },
+  "/assets/brand/Bean-Bros-Monogram-2x2.jpg": {
+    "src": "/assets/brand/Bean-Bros-Monogram-2x2-web.webp",
+    "width": 600,
+    "height": 600
+  },
+  "/assets/products/bean-bros-blend.webp": {
+    "src": "/assets/products/bean-bros-blend-web.webp",
+    "width": 712,
+    "height": 1200
+  },
+  "/assets/products/brazil-legender.webp": {
+    "src": "/assets/products/brazil-legender-web.webp",
+    "width": 655,
+    "height": 1200
+  },
+  "/assets/products/colombian.webp": {
+    "src": "/assets/products/colombian-web.webp",
+    "width": 700,
+    "height": 1200
+  },
+  "/assets/products/ethiopian-yirgacheffe.webp": {
+    "src": "/assets/products/ethiopian-yirgacheffe-web.webp",
+    "width": 705,
+    "height": 1200
+  },
+  "/assets/products/french-roast-sumatra.webp": {
+    "src": "/assets/products/french-roast-sumatra-web.webp",
+    "width": 700,
+    "height": 1200
+  },
+  "/assets/products/mexican-chiapas.webp": {
+    "src": "/assets/products/mexican-chiapas-web.webp",
+    "width": 712,
+    "height": 1200
+  },
+  "/assets/products/nicaragua.webp": {
+    "src": "/assets/products/nicaragua-web.webp",
+    "width": 698,
+    "height": 1200
+  },
+  "/collections/assets/herbs/herb-00-front.png": {
+    "src": "/collections/assets/herbs/herb-00-front-web.webp",
+    "width": 900,
+    "height": 1100
+  },
+  "/collections/assets/herbs/herb-01-front.png": {
+    "src": "/collections/assets/herbs/herb-01-front-web.webp",
+    "width": 900,
+    "height": 1100
+  },
+  "/collections/assets/herbs/herb-02-front.png": {
+    "src": "/collections/assets/herbs/herb-02-front-web.webp",
+    "width": 900,
+    "height": 1100
+  },
+  "/collections/assets/herbs/herb-03-front.png": {
+    "src": "/collections/assets/herbs/herb-03-front-web.webp",
+    "width": 900,
+    "height": 1100
+  },
+  "/collections/assets/herbs/herb-04-front.png": {
+    "src": "/collections/assets/herbs/herb-04-front-web.webp",
+    "width": 900,
+    "height": 1100
+  },
+  "/collections/assets/herbs/herb-05-front.png": {
+    "src": "/collections/assets/herbs/herb-05-front-web.webp",
+    "width": 900,
+    "height": 1100
+  },
+  "/collections/assets/herbs/herb-06-front.png": {
+    "src": "/collections/assets/herbs/herb-06-front-web.webp",
+    "width": 900,
+    "height": 1100
+  },
+  "/collections/assets/herbs/herb-07-front.png": {
+    "src": "/collections/assets/herbs/herb-07-front-web.webp",
+    "width": 900,
+    "height": 1100
+  },
+  "/collections/assets/herbs/herb-08-front.png": {
+    "src": "/collections/assets/herbs/herb-08-front-web.webp",
+    "width": 900,
+    "height": 1100
+  },
+  "/collections/assets/herbs/herb-09-front.png": {
+    "src": "/collections/assets/herbs/herb-09-front-web.webp",
+    "width": 900,
+    "height": 1100
+  },
+  "/collections/assets/herbs/herb-10-front.png": {
+    "src": "/collections/assets/herbs/herb-10-front-web.webp",
+    "width": 900,
+    "height": 1100
+  },
+  "/collections/assets/herbs/herb-11-front.png": {
+    "src": "/collections/assets/herbs/herb-11-front-web.webp",
+    "width": 900,
+    "height": 1100
+  },
+  "/collections/assets/herbs/herb-12-front.png": {
+    "src": "/collections/assets/herbs/herb-12-front-web.webp",
+    "width": 900,
+    "height": 1100
+  },
+  "/collections/assets/herbs/herb-13-front.png": {
+    "src": "/collections/assets/herbs/herb-13-front-web.webp",
+    "width": 900,
+    "height": 1100
+  },
+  "/collections/assets/herbs/herb-14-front.png": {
+    "src": "/collections/assets/herbs/herb-14-front-web.webp",
+    "width": 900,
+    "height": 1100
+  },
+  "/collections/assets/herbs/herb-15-front.png": {
+    "src": "/collections/assets/herbs/herb-15-front-web.webp",
+    "width": 900,
+    "height": 1100
+  },
+  "/collections/assets/herbs/herb-16-front.png": {
+    "src": "/collections/assets/herbs/herb-16-front-web.webp",
+    "width": 900,
+    "height": 1100
+  },
+  "/collections/assets/herbs/herb-17-front.png": {
+    "src": "/collections/assets/herbs/herb-17-front-web.webp",
+    "width": 900,
+    "height": 1100
+  },
+  "/collections/assets/herbs/herb-18-front.png": {
+    "src": "/collections/assets/herbs/herb-18-front-web.webp",
+    "width": 900,
+    "height": 1100
+  },
+  "/collections/assets/herbs/herb-19-front.png": {
+    "src": "/collections/assets/herbs/herb-19-front-web.webp",
+    "width": 900,
+    "height": 1100
+  },
+  "/collections/assets/herbs/herb-20-front.png": {
+    "src": "/collections/assets/herbs/herb-20-front-web.webp",
+    "width": 900,
+    "height": 1100
+  },
+  "/collections/assets/herbs/herb-21-front.png": {
+    "src": "/collections/assets/herbs/herb-21-front-web.webp",
+    "width": 900,
+    "height": 1100
+  },
+  "/collections/assets/herbs/herb-22-front.png": {
+    "src": "/collections/assets/herbs/herb-22-front-web.webp",
+    "width": 900,
+    "height": 1100
+  },
+  "/collections/assets/herbs/herb-23-front.png": {
+    "src": "/collections/assets/herbs/herb-23-front-web.webp",
+    "width": 900,
+    "height": 1100
+  },
+  "/collections/assets/herbs/herb-24-front.png": {
+    "src": "/collections/assets/herbs/herb-24-front-web.webp",
+    "width": 900,
+    "height": 1100
+  },
+  "/collections/assets/herbs/herb-25-front.png": {
+    "src": "/collections/assets/herbs/herb-25-front-web.webp",
+    "width": 900,
+    "height": 1100
+  },
+  "/collections/assets/herbs/herb-26-front.png": {
+    "src": "/collections/assets/herbs/herb-26-front-web.webp",
+    "width": 900,
+    "height": 1100
+  },
+  "/collections/assets/herbs/herb-27-front.png": {
+    "src": "/collections/assets/herbs/herb-27-front-web.webp",
+    "width": 900,
+    "height": 1100
+  },
+  "/collections/assets/herbs/herb-28-front.png": {
+    "src": "/collections/assets/herbs/herb-28-front-web.webp",
+    "width": 900,
+    "height": 1100
+  },
+  "/collections/assets/herbs/herb-29-front.png": {
+    "src": "/collections/assets/herbs/herb-29-front-web.webp",
+    "width": 900,
+    "height": 1100
+  },
+  "/collections/assets/herbs/herb-30-front.png": {
+    "src": "/collections/assets/herbs/herb-30-front-web.webp",
+    "width": 900,
+    "height": 1100
+  },
+  "/collections/assets/herbs/herb-31-front.png": {
+    "src": "/collections/assets/herbs/herb-31-front-web.webp",
+    "width": 900,
+    "height": 1100
+  },
+  "/collections/assets/herbs/herb-32-front.png": {
+    "src": "/collections/assets/herbs/herb-32-front-web.webp",
+    "width": 900,
+    "height": 1100
+  },
+  "/collections/assets/herbs/herb-lucky-star-culinary-front.png": {
+    "src": "/collections/assets/herbs/herb-lucky-star-culinary-front-web.webp",
+    "width": 981,
+    "height": 1200
+  },
+  "/collections/assets/herbs/herb-lucky-star-external-front.png": {
+    "src": "/collections/assets/herbs/herb-lucky-star-external-front-web.webp",
+    "width": 981,
+    "height": 1200
+  },
+  "/collections/assets/herbs/herb-lucky-star-front.png": {
+    "src": "/collections/assets/herbs/herb-lucky-star-front-web.webp",
+    "width": 981,
+    "height": 1200
+  },
+  "/source-images/catalog-house-blend.png": {
+    "src": "/assets/products/catalog-house-blend-web.webp",
+    "width": 960,
+    "height": 1200
+  },
+  "/collections/assets/full.png": {
+    "src": "/collections/assets/full-web.webp",
+    "width": 1200,
+    "height": 1200
+  },
+  "/collections/assets/merch.png": {
+    "src": "/collections/assets/merch-web.webp",
+    "width": 1200,
+    "height": 800
+  },
+  "/collections/assets/accessories.png": {
+    "src": "/collections/assets/accessories-web.webp",
+    "width": 1200,
+    "height": 800
+  },
+  "/collections/assets/beanbros-travel-mug.png": {
+    "src": "/collections/assets/beanbros-travel-mug-web.webp",
+    "width": 1200,
+    "height": 1200
+  },
+  "/collections/assets/beanbros-speckled-mug.png": {
+    "src": "/collections/assets/beanbros-speckled-mug-web.webp",
+    "width": 1200,
+    "height": 1200
+  },
+  "/.netlify/functions/image?key=product-1-1788370695554-24a169f5.webp": {
+    "src": "/assets/products/ethiopian-yirgacheffe-web.webp",
+    "width": 705,
+    "height": 1200
+  },
+  "/.netlify/functions/image?key=product-4-1788370702806-3452cad6.webp": {
+    "src": "/assets/products/french-roast-sumatra-web.webp",
+    "width": 700,
+    "height": 1200
+  },
+  "/.netlify/functions/image?key=product-5-1788370711050-129bf88d.webp": {
+    "src": "/assets/products/nicaragua-web.webp",
+    "width": 698,
+    "height": 1200
+  },
+  "/.netlify/functions/image?key=product-6-1788370717892-7f98ce78.webp": {
+    "src": "/assets/products/mexican-chiapas-web.webp",
+    "width": 712,
+    "height": 1200
+  },
+  "/.netlify/functions/image?key=product-7-1788370748330-b9709b16.png": {
+    "src": "/assets/products/catalog-house-blend-web.webp",
+    "width": 960,
+    "height": 1200
+  },
+  "/.netlify/functions/image?key=product-8-1788370759259-6c07be8a.webp": {
+    "src": "/assets/products/brazil-legender-web.webp",
+    "width": 655,
+    "height": 1200
+  }
+}

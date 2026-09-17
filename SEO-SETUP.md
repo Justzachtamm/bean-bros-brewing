@@ -1,5 +1,11 @@
 # Bean Bros SEO and measurement
 
+## September 17, 2026: local SEO and performance batch
+
+The new batch is checked and **integrated into the saved project for the user-authorized production release**. This section records its pre-release state; Netlify deployment status identifies when the release is live. See [SEO-PERFORMANCE-REVIEW.md](SEO-PERFORMANCE-REVIEW.md) for scope, evidence and release steps, and [BACKLINK-STRATEGY.md](BACKLINK-STRATEGY.md) for the outreach plan. Search Console ownership was confirmed live; its sitemap is successful, last read September 16. Public collections will become indexable when this batch is released; admin/account exclusions remain.
+
+## Historical September 7 deployment record
+
 Updated September 7, 2026. Published to https://beanbrosbrewingco.com on Netlify, deployment 6a9f55b1610f2e0b49054397.
 
 ## Configuration and account status

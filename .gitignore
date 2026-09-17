@@ -14,3 +14,6 @@ deno.lock
 /Transparent-Logos/
 /transparent logo/
 /advertisements/
+
+# Generated coffee artwork and creative export packages; retain locally.
+/output/

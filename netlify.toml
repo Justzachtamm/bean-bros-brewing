@@ -80,25 +80,8 @@
     #                                   redirect every relative URL elsewhere
     Content-Security-Policy = "default-src 'self'; script-src 'self' https://js.stripe.com https://*.js.stripe.com https://checkout.stripe.com https://www.googletagmanager.com https://connect.facebook.net https://analytics.tiktok.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' https://*.stripe.com data: blob: https://images.unsplash.com https://www.facebook.com https://*.google-analytics.com https://analytics.tiktok.com; media-src 'self' https://assets.mixkit.co https://videos.pexels.com; connect-src 'self' https://checkout.stripe.com https://api.stripe.com https://*.google-analytics.com https://www.googletagmanager.com https://www.facebook.com https://analytics.tiktok.com https://*.tiktok.com; form-action 'self' https://checkout.stripe.com; frame-src https://js.stripe.com https://*.js.stripe.com https://checkout.stripe.com https://hooks.stripe.com; frame-ancestors 'none'; base-uri 'self'; object-src 'none'; upgrade-insecure-requests"
 
-# Assets revalidate on every load.
-#
-# "immutable, max-age=31536000" is the right header for a build pipeline that
-# emits a NEW filename whenever content changes. This project has no build step:
-# the bundle is edited in place and keeps its name. Those two facts together are
-# a trap — the header told browsers to keep the file for a year without asking,
-# so an edit shipped to the origin never reached anyone who had already loaded
-# the site. That is exactly what happened with the credential purge, and it is
-# why the bundle had to be renamed once to break the poisoned caches.
-#
-# must-revalidate costs one conditional request per load; Netlify answers with a
-# 304 and no body when nothing changed, so the bytes are still cached — only the
-# freshness check is added. Correctness over a few milliseconds.
-#
-# If a real build pipeline is ever added here, switch this back to immutable.
-[[headers]]
-  for = "/assets/*"
-  [headers.values]
-    Cache-Control = "public, max-age=0, must-revalidate"
+# Stable asset paths use Netlify default revalidation. Only content-hashed
+# application bundles below opt into immutable caching; avoid overlapping rules.
 
 # Never let a proxy or browser cache an API response. Several of these return
 # one customer's orders, subscriptions, or profile; a shared cache serving that
@@ -135,3 +118,9 @@
 
 [functions."measurement-dispatch"]
   schedule = "*/5 * * * *"
+
+# Built filenames change whenever their contents change.
+[[headers]]
+  for = "/assets/app-*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"

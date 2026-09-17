@@ -21,3 +21,6 @@ input,select,textarea,.filters button{border-color:#777b6c}button,summary{min-he
 @media(max-width:400px){.grid{grid-template-columns:1fr}.hero-copy h1{font-size:44px}nav{flex-wrap:wrap}.values{flex-wrap:wrap}.preview span{margin-left:0}}
 
 :focus-visible{box-shadow:0 0 0 3px #fff}
+
+/* Intrinsic dimensions reserve space without stretching the brand artwork. */
+img{max-width:100%;height:auto}@media(max-width:700px){header nav a,.filters button,footer a{min-height:44px;display:inline-flex;align-items:center}}

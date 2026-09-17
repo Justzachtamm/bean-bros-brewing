@@ -34,9 +34,20 @@ for(const dir of ['assets/brand','assets/products']) {
 }
 for(const file of staticFiles)copy(file);
 // Publish only the reviewed collection page and its required public images.
-for(const file of ['index.html','style.css','app.js','catalog.js'])copy('collections/'+file);
+copy('collections/index.html');
+// Fingerprint collection code as well: the source URLs remain available for old pages.
+for(const file of ['style.css','app.js','catalog.js']) {
+ const source='collections/'+file,bytes=fs.readFileSync(path.join(root,source));
+ const digest=crypto.createHash('sha256').update(bytes).digest('hex').slice(0,16);
+ const target='collections/'+path.parse(file).name+'-'+digest+path.extname(file);
+ copy(source);copy(source,target);
+ const page=path.join(out,'collections/index.html');
+ fs.writeFileSync(page,fs.readFileSync(page,'utf8').replaceAll('"'+file+'"','"/'+target+'"'));
+}
+
 const accessoryScript = 'assets/app-'+crypto.createHash('sha256').update(fs.readFileSync(path.join(root,'assets/accessories.js'))).digest('hex').slice(0,16)+'.js';
-const collectionPage=path.join(out,'collections/index.html');fs.writeFileSync(collectionPage,fs.readFileSync(collectionPage,'utf8').replace('/assets/accessories.js','/'+accessoryScript));
+const imageScript='assets/app-'+crypto.createHash('sha256').update(fs.readFileSync(path.join(root,'assets/optimized-images.js'))).digest('hex').slice(0,16)+'.js';
+const collectionPage=path.join(out,'collections/index.html');fs.writeFileSync(collectionPage,fs.readFileSync(collectionPage,'utf8').replace('/assets/accessories.js','/'+accessoryScript).replace('/assets/optimized-images.js','/'+imageScript));
 for(const dir of ['assets','source/images'])fs.cpSync(path.join(root,'collections',dir),path.join(out,'collections',dir),{recursive:true});
 console.log('Built customer and admin pages into dist; server files excluded.');
 

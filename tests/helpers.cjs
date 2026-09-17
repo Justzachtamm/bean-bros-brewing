@@ -7,10 +7,11 @@ function loader(overrides={}, env={}) {
     const absolute=path.resolve(root,file);
     if(cache.has(absolute))return cache.get(absolute).exports;
     const module={exports:{}};cache.set(absolute,module);
+    if(absolute.endsWith('.json')){module.exports=JSON.parse(fs.readFileSync(absolute,'utf8'));return module.exports}
     const req=name=>{
       if(Object.hasOwn(overrides,name))return overrides[name];
       if(name.startsWith('.')) {
-        const target=path.resolve(path.dirname(absolute),name)+'.js';
+        const target=path.resolve(path.dirname(absolute),name)+(path.extname(name)?'':'.js');
         const relative=path.relative(root,target);
         if(Object.hasOwn(overrides,relative))return overrides[relative];
         if(relative==='netlify/functions/lib/db.js')return {one(){throw Error('Unexpected database call')},query(){throw Error('Unexpected database call')},connection(){throw Error('Unexpected database call')}};
