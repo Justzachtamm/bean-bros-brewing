@@ -6,6 +6,8 @@ exports.handler=async event=>{
  try{
   const list=seo.active(await getProducts()),q={...(event.queryStringParameters||{})};
   const pathname=event.rawUrl?new URL(event.rawUrl).pathname:event.path||'';
+  // Netlify matches /shop and /shop/ alike in _redirects; normalize here instead.
+  if(pathname==='/shop')return {statusCode:301,headers:{...headers,Location:seo.ORIGIN+'/shop/'},body:''};
   if(/^\/shop\/?$/.test(pathname))q.kind='shop';
   if(pathname==='/sitemap.xml')q.kind='sitemap';
   if(pathname==='/feeds/products.xml')q.kind='feed';

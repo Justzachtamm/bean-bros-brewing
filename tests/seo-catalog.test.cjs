@@ -23,3 +23,14 @@ test('noncanonical product path redirects once to the preserved canonical slug',
  }
  const r=await handler({httpMethod:'HEAD',rawUrl:seo.url(product)});assert.equal(r.statusCode,200);assert.equal(r.body,'');
 });
+
+test('shop slash normalization redirects only the exact slashless path',async()=>{
+ const handler=loader({'./lib/products':{getProducts:async()=>[product]}})('netlify/functions/seo-catalog.js').handler;
+ const plain=await handler({httpMethod:'GET',rawUrl:seo.ORIGIN+'/shop'});
+ assert.equal(plain.statusCode,301);assert.equal(plain.headers.Location,seo.ORIGIN+'/shop/');
+ const canonical=await handler({httpMethod:'GET',rawUrl:seo.ORIGIN+'/shop/'});
+ assert.equal(canonical.statusCode,200);assert.equal(canonical.headers.Location,undefined);
+ assert.match(canonical.body,/<h1>Find your daily favorite/);
+ const redirects=require('node:fs').readFileSync('_redirects','utf8');
+ assert.ok(!/^\/shop\s+\/shop\//m.test(redirects));
+});
