@@ -1,4 +1,26 @@
 const {test}=require('node:test'),assert=require('node:assert/strict'),{loader,event}=require('./helpers.cjs');
+test('unconfigured email dispatch never opens the database',async()=>{
+ const h=loader({'./email':{isConfigured:()=>false}})('netlify/functions/customer-email-dispatch.js').handler;
+ const result=await h();
+ assert.equal(result.statusCode,200);
+ assert.equal(JSON.parse(result.body).error,'Email provider is not configured');
+});
+test('messages queued while email is unconfigured remain deliverable after configuration',async()=>{
+ const {PGlite}=require('@electric-sql/pglite'),pg=new PGlite();
+ try{
+  let configured=false,sent=0;
+  const db={query:async(s,a)=>a?(await pg.query(s,a)).rows:(await pg.exec(s)).at(-1).rows,one:async(s,a)=>(await pg.query(s,a)).rows[0]};
+  const care=loader({'./db':db,'./email':{isConfigured:()=>configured,send:async()=>{sent++;return {ok:true}}}})('netlify/functions/lib/customer-care.js');
+  await care.queue('deferred','buyer@example.test',{subject:'Order confirmed'});
+  await care.sendQueued('deferred');
+  assert.equal(sent,0);
+  assert.equal((await db.one("SELECT status FROM customer_messages WHERE id='deferred'",[])).status,'pending');
+  configured=true;
+  await care.flush(3);
+  await care.flush(3);
+  assert.equal(sent,1);
+ }finally{await pg.close()}
+});
 test('public reviews select only approved text without private survey or email',async()=>{let sql;const h=loader({'./lib/customer-care':{schema:async()=>{}},'./lib/db':{query:async s=>{sql=s;return[]}}})('netlify/functions/reviews.js').handler;const r=await h(event({}, {httpMethod:'GET',queryStringParameters:{productId:'1'}}));assert.equal(r.statusCode,200);assert.match(sql,/status='approved'/);assert.doesNotMatch(sql.split('FROM')[0],/email|survey|order_id/)});
 test('review moderation is protected before any database access',async()=>{const h=loader({'./lib/auth':{verifyAdminToken:()=>false}})('netlify/functions/admin-customer-care.js').handler;assert.equal((await h(event({action:'moderate',status:'approved'}))).statusCode,401)});
 test('reviews reject another customer, unreceived products and test orders',async()=>{for(const which of ['other','unreceived','test']){const care=loader()('netlify/functions/lib/customer-care.js');const h=loader({'./lib/accounts':{requireSession:async()=>({email:'buyer@example.test',user:{name:'Buyer'}})},'./lib/rate-limit':{consumeLimit:async()=>true,clientIp:()=>''},'./lib/customer-care':{...care,schema:async()=>{}},'./lib/orders':{getOrderById:async()=>({id:'o',customerEmail:which==='other'?'other@example.test':'buyer@example.test',accounting:{livemode:which!=='test'},status:which==='unreceived'?'Shipped':'Delivered',items:[{productId:1}]})}})('netlify/functions/reviews.js').handler;assert.ok([403,404].includes((await h(event({orderId:'o',productId:1,rating:5,experience:5,body:'Good tea'}))).statusCode))}});

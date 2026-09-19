@@ -114,10 +114,12 @@
   schedule = "0 * * * *"
 
 [functions."customer-email-dispatch"]
-  schedule = "*/5 * * * *"
+  # Align queue polling so a quiet database can sleep after its 5-minute timeout.
+  # Order confirmations and tracking still attempt delivery at the event itself.
+  schedule = "*/15 * * * *"
 
 [functions."measurement-dispatch"]
-  schedule = "*/5 * * * *"
+  schedule = "*/15 * * * *"
 
 # Built filenames change whenever their contents change.
 [[headers]]
