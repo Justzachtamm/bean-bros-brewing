@@ -1,6 +1,6 @@
 # Database runtime reduction — September 19, 2026
 
-Status: checked locally, not published. Production remains on c2ce397.
+Status: user published commit 089aa86; production deployment 6aaecc111e51e300087c3de6 verified on September 19 at approximately 2:01 PM EDT.
 
 ## Evidence and cause
 
@@ -23,4 +23,6 @@ On an otherwise idle database, aligned polling creates approximately ten minutes
 
 npm test: 156 passed. npm run build: passed. git diff --check: passed.
 
-Publish the completed batch once when authorized. Then verify deployed schedules and function outcomes once. Compare a subsequent 24-hour database compute window with the 15.5 GB-hour baseline and check pending queue age before claiming savings. No billing or live database settings changed.
+Live verification: both production function pages show every 15 minutes, with the next run at 2:15 PM EDT. The first new scheduled executions appeared at 2:00:47–49 PM: measurement-dispatch completed in 163.28 ms, customer-email-dispatch in 153.9 ms, with no handler-failure or timeout messages. Both logged the existing PostgreSQL SSL-mode future-compatibility warning (also present before deployment); it remains unresolved. Execution logs do not report message counts, queue ages, or delivery confirmation. The public /shop/ page loaded populated product listings. No manual queue execution or test customer messages were triggered.
+
+The database dashboard still showed 15.5 GB-hours, but its usage chart ended at noon before deployment; no savings or successful suspension were verified. Compare a subsequent complete 24-hour compute window with the baseline and inspect queue age before claiming savings. No billing or live database settings changed. This verification note is local only and needs no standalone deployment.
