@@ -54,7 +54,7 @@ exports.handler = async (event) => {
     const needsAccount = items.some((item) => item?.isSubscription) || !!(event.headers?.authorization || event.headers?.Authorization);
     const account = needsAccount ? await requireSession(event, baseHeaders) : null;
     if (account?.error) return account.error;
-    const items_ = [];
+    let items_ = [];
     const taxEnabled = process.env.STRIPE_TAX_ENABLED === "true";
     if (/^(sk|rk)_live_/.test(secretKey) && !taxEnabled) return { statusCode: 503, headers: baseHeaders, body: JSON.stringify({ error: "Checkout is awaiting tax setup. Please contact the store." }) };
     const profiles = taxEnabled ? await businessRecords.list("tax_profile") : [];
@@ -111,6 +111,9 @@ exports.handler = async (event) => {
         price,
       });
     }
+
+    // Apply the pair offer only after resolving prices and inventory from the catalog.
+    items_ = require("../../assets/mug-offer").apply(items_);
 
     const stripe = Stripe(secretKey);
     if (taxEnabled && !["wallet-start","promo-check"].includes(action)) {

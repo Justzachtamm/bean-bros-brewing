@@ -58,3 +58,6 @@ button,summary{min-height:24px;min-width:24px}summary{cursor:pointer}
 :focus-visible{box-shadow:0 0 0 3px #fff}
 
 #subscription-coffee-step>h3{font:inherit;font-size:24px}#subscription-mushrooms>h3,.builder-mushroom-invitation>h3{font-family:var(--serif,Georgia,serif)}
+
+/* Seasonal feature uses typography until an approved Pumpkin Spice photo is available. */
+.pumpkin-feature{position:absolute;left:6%;top:14%;width:43%;height:72%;z-index:2;display:flex;flex-direction:column;justify-content:center;gap:22px;padding:25px;background:#c4733d;color:#201b13;border:1px solid #e6af78;transform:rotate(-7deg);box-shadow:0 20px 35px #0003;text-decoration:none}.pumpkin-feature>span{font-size:10px;letter-spacing:.1em;line-height:1.5}.pumpkin-feature strong{font-family:"Playfair Display",serif;font-size:clamp(32px,4vw,60px);line-height:1.1;font-weight:500}.pumpkin-feature .pumpkin-feature-link{text-decoration:underline;text-underline-offset:5px;letter-spacing:0}.pumpkin-feature:focus-visible{outline:3px solid #fff;outline-offset:6px}@media(max-width:700px){.pumpkin-feature{gap:16px;padding:20px}.pumpkin-feature strong{font-size:clamp(25px,7vw,40px)}}
