@@ -17,3 +17,10 @@ deno.lock
 
 # Generated coffee artwork and creative export packages; retain locally.
 /output/
+
+# Local Shopify migration snapshots, reports, scratch work and editor setup.
+# Preserve these files locally; they are not production application source.
+/migration/
+/outputs/
+/tmp/
+/.codex/

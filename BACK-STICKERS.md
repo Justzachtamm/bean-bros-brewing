@@ -44,3 +44,26 @@ Changed: assets/herb-details.js, collections/catalog.js, assets/storefront.js, c
 Checked: 119 tests passed; production build passed; both product views checked for all 28 mappings; built sticker files match their assigned rendered PDF pages.
 
 Status: ready locally, not published. No deployment performed.
+
+## October 7, 2026 — new herb and tea stickers
+
+Created ten matching front stickers (3.5 × 1.5 inches) and ten separate back stickers (4 × 6 inches) for Chaga, Turkey Tail, Kava Kava, Japanese Culinary Matcha, five 10-bag teas, and the 10-bag sampler containing two of each tea.
+
+The master is now `/Users/zachtammous/Downloads/Bean_Bros_ALL_41_Herbs_4x6_MATCHED.pdf`. It appends these ten backs to the existing 31-page master; all original pages were verified unchanged. The original master is preserved.
+
+| New master page | Product |
+| --- | --- |
+| 32 | Chaga Mushroom Powder |
+| 33 | Turkey Tail Mushroom Powder |
+| 34 | Kava Kava Root Powder |
+| 35 | Japanese Culinary Matcha |
+| 36 | Hibiscus Glow Tea Bags |
+| 37 | Peppermint Power Tea Bags |
+| 38 | Raspberry Leaf Tea Bags |
+| 39 | Pharaoh's Rest Chamomile Tea Bags |
+| 40 | Root Awakening Ginger Tea Bags |
+| 41 | Herbal Tea Sampler — 2 of Each |
+
+Individual PDFs are in `/Users/zachtammous/Downloads/Bean Bros - New Herb Sticker PDFs`, organized into Front and Back folders. The PDF-only archive is `/Users/zachtammous/Downloads/Bean-Bros-20-Separate-Sticker-PDFs.zip`.
+
+Source, product data, printable files, images, and verification renders are in `output/herb-launch-2026-10-07/`. Shopify is the requested website destination; no Netlify release was made. All ten Shopify and Whatnot listings are active with 20 available each and matching bag renders as primary images, followed by front/back sticker images. The Shopify homepage addition is saved and previewed in the draft theme `Bean Bros - new herbs Oct 7`; manual theme publication remains because the connector blocks publishing. See the launch handoff in that output folder for details.
