@@ -14,7 +14,7 @@ function copy(source, target=source) {
   fs.mkdirSync(path.dirname(dest), {recursive:true});
   fs.copyFileSync(path.join(root, source),dest);
 }
-const pages = ['index.html','admin.html','account.html','accessibility.html','privacy.html','shipping-returns.html','terms.html'];
+const pages = ['order-review.html','index.html','admin.html','account.html','accessibility.html','privacy.html','shipping-returns.html','terms.html'];
 for(const page of pages) {
  let html = fs.readFileSync(path.join(root,page),'utf8');
  const assets = [...html.matchAll(/(?:src|href)="\/(assets\/[A-Za-z0-9_.-]+\.(?:js|css))"/g)].map(match=>match[1]);
